@@ -1,3 +1,5 @@
+(Work in progress)
+
 # Salesforce Job Application Tracker
 
 This repository contains a **Salesforce-native Job Application Tracker**, designed to help users search and track job postings across multiple job boards (e.g., Jooble, Indeed, LinkedIn). The application is built using modern Salesforce best practices, including **Queueable Apex, Strategy Patterns, Domain-Driven Design, Platform Events, and robust trigger handling**.
