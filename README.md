@@ -32,6 +32,7 @@ Before deploying the application, ensure you have:
 #### 1.1 Nebula Logger
 
 **Option A: Install via Salesforce CLI (Recommended)**
+
 ```bash
 # Install Nebula Logger unlocked package
 sf package install --package 04t5Y0000023NSRQA2 --target-org your-org-alias --wait 10
@@ -41,12 +42,14 @@ sf org open --target-org your-org-alias
 ```
 
 **Option B: Install via Browser**
+
 1. Open this link in your browser while logged into your org:
    [Install Nebula Logger](https://github.com/jongpie/NebulaLogger/releases/latest)
 2. Follow the prompts to install the unlocked package.
 3. Grant access to all users.
 
 **Option C: AppExchange**
+
 1. Search "Nebula Logger" on Salesforce AppExchange
 2. Install by Jon Pie
 3. Grant access to all users
@@ -54,8 +57,9 @@ sf org open --target-org your-org-alias
 #### 1.2 Kevin O’Hara Trigger Framework
 
 **Option A: Install via Salesforce CLI (Recommended)**
+
 ```bash
-# Install Trigger Handler unlocked package  
+# Install Trigger Handler unlocked package
 sf package install --package 04t6g000007h8DKAAY --target-org your-org-alias --wait 10
 
 # Verify installation
@@ -63,12 +67,14 @@ sf org open --target-org your-org-alias
 ```
 
 **Option B: Install via Browser**
+
 1. Open this link in your browser while logged into your org:
    [Install Trigger Framework](https://github.com/kevinohara80/sfdc-trigger-framework)
 2. Follow the installation instructions for the unlocked package.
 3. Grant access to all users.
 
 **Option C: GitHub**
+
 1. Visit [Kevin O'Hara's Trigger Framework](https://github.com/kevinohara80/sfdc-trigger-framework)
 2. Use the provided package installation link
 3. Grant access to all users
@@ -165,11 +171,13 @@ This project follows **package dependency best practices** for managing third-pa
 #### ✅ **Chosen Approach: Package Dependencies**
 
 **What this means:**
+
 - **Third-party source code is NOT included** in this repository
-- Dependencies are declared in `sfdx-project.json` and installed separately  
+- Dependencies are declared in `sfdx-project.json` and installed separately
 - Clear separation between application code and external packages
 
 **Configuration:**
+
 ```json
 {
   "packageDirectories": [
@@ -197,6 +205,7 @@ This project follows **package dependency best practices** for managing third-pa
 6. **⚡ Easier Maintenance:** No need to track upstream changes or maintain forks
 
 **Deployment workflow:**
+
 ```bash
 # 1. Install dependencies first
 sf package install --package 04t5Y0000023NSRQA2 --target-org your-org  # Nebula Logger
@@ -212,7 +221,7 @@ Including third-party source code (Nebula Logger, Trigger Framework, etc.) direc
 
 - **🚫 Maintenance Overhead:** Manual tracking of upstream updates
 - **🚫 Code Mixing:** Third-party code mixed with business logic
-- **🚫 Update Complexity:** Difficult to upgrade without conflicts  
+- **🚫 Update Complexity:** Difficult to upgrade without conflicts
 - **🚫 Unclear Ownership:** Confusion about what code belongs to your project
 - **🚫 Repository Bloat:** Unnecessary increase in repository size
 
@@ -710,3 +719,213 @@ Key point: API wrappers are inside the strategy layer, never leak to services, q
 Domain wrappers remain the common language for all layers outside the strategy.
 API wrappers are internal to strategies and are never exposed to services, queueables, triggers, or the UI.
 Strategies are responsible for mapping API wrappers → domain wrappers before passing data downstream.
+
+## Testing Strategy & Architecture
+
+### Overview
+
+Our Job Application Tracker employs a comprehensive testing strategy designed to ensure 85%+ code coverage while maintaining fast, reliable test execution. The testing architecture follows enterprise patterns that support the application's multi-layered design and complex async processing workflows.
+
+### Testing Philosophy
+
+**Pyramid Approach**: We prioritize unit tests for business logic, integration tests for cross-layer interactions, and end-to-end tests for critical user workflows. This approach ensures fast feedback cycles while maintaining confidence in system behavior.
+
+**Layer-Specific Coverage Targets**:
+
+- **Domain Layer**: 95% (critical business rules and data validation)
+- **Controller Layer**: 90% (user input validation and orchestration)
+- **Service Layer**: 90% (business logic coordination)
+- **Strategy Layer**: 90% (external API integration logic)
+- **Async Layer**: 85% (queueable processing workflows)
+- **Trigger Layer**: 95% (data consistency and automation)
+
+### Architectural Patterns
+
+#### 1. Test Data Factory Pattern
+
+```apex
+@isTest
+public class TestDataFactory {
+  public static JobSearchCriteria createValidCriteria() {
+    return JobSearchCriteria.create('Software Developer', 'Toronto')
+      .withWorkTypes(new List<String>{ 'remote' })
+      .withJobBoards(new List<String>{ 'jooble' });
+  }
+
+  public static JobApplicationDomain createSampleJob() {
+    // Standardized test data creation
+  }
+}
+```
+
+**Rationale**: Centralizes test data creation, ensures consistency across tests, and makes tests more maintainable when data structures evolve.
+
+#### 2. HTTP Callout Mock Framework
+
+```apex
+@isTest
+public class JobBoardAPICalloutMock implements HttpCalloutMock {
+  private Map<String, HttpCalloutMock> endpointMocks;
+
+  public void setMock(String endpoint, HttpCalloutMock mock) {
+    // Route different endpoints to different mocks
+  }
+}
+```
+
+**Pattern**: Strategy Pattern for mocking different job board APIs
+**Tradeoff**: More complex setup but enables isolated testing of each integration
+
+#### 3. Async Testing Utilities
+
+```apex
+@isTest
+public class AsyncTestUtils {
+  public static void executeQueueableWithMocks(
+    Queueable job,
+    HttpCalloutMock mock
+  ) {
+    Test.setMock(HttpCalloutMock.class, mock);
+    Test.startTest();
+    System.enqueueJob(job);
+    Test.stopTest();
+    // Verification helpers
+  }
+}
+```
+
+**Rationale**: Encapsulates the complex `Test.startTest()`/`Test.stopTest()` pattern required for testing queueables with callouts, reducing boilerplate in individual tests.
+
+### Test Organization Structure
+
+```
+force-app/test/default/classes/
+├── testUtilities/
+│   ├── TestDataFactory.cls
+│   ├── JobBoardAPICalloutMock.cls
+│   └── AsyncTestUtils.cls
+├── domain/
+│   ├── JobApplicationDomainTest.cls
+│   └── JobSearchCriteriaTest.cls
+├── service/
+│   ├── JobSearchServiceTest.cls
+│   └── JobSearchTrackingServiceTest.cls
+├── strategies/
+│   ├── JoobleStrategyTest.cls
+│   ├── IndeedStrategyTest.cls
+│   └── JobBoardStrategyRegistryTest.cls
+├── queueables/
+│   ├── JobSearchOrchestratorQueueableTest.cls
+│   ├── CompositeBoardSearchQueueableTest.cls
+│   └── SingleBoardSearchQueueableTest.cls
+├── controller/
+│   └── JobSearchControllerTest.cls
+└── triggerHandler/
+    ├── JobApplicationTriggerHandlerTest.cls
+    └── JobApplicationTaskHelperTest.cls
+```
+
+### Key Architectural Decisions
+
+#### 1. Mock-First External Integration Testing
+
+**Decision**: All external API calls are mocked using `HttpCalloutMock`
+**Rationale**: Ensures tests are fast, reliable, and don't depend on external service availability
+**Tradeoff**: Requires maintaining mock responses that match real API behavior
+
+#### 2. Platform Event Testing Strategy
+
+**Decision**: Use `Test.getEventBus().deliver()` for synchronous event testing
+**Pattern**: Event-Driven Testing Pattern
+
+```apex
+@isTest
+public static void testJobSearchCompletionEvent() {
+    // Trigger event
+    EventBus.publish(new JobSearchCompleted__e(/*...*/));
+    Test.getEventBus().deliver(); // Force immediate delivery
+    // Verify handlers processed event
+}
+```
+
+**Rationale**: Enables testing event-driven workflows without complex async handling
+
+#### 3. Custom Metadata Testing Approach
+
+**Decision**: Use test-specific custom metadata records rather than dependency injection
+**Implementation**: Leverage `@TestSetup` methods to create test metadata
+**Tradeoff**: Tests depend on metadata structure but remain simpler than full dependency injection
+
+#### 4. Queueable Chain Testing Strategy
+
+**Pattern**: Builder Pattern for complex async scenarios
+
+```apex
+@isTest
+public class QueueableTestBuilder {
+  public QueueableTestBuilder withJobBoards(List<String> boards) {
+    /*...*/
+  }
+  public QueueableTestBuilder expectingResults(Integer count) {
+    /*...*/
+  }
+  public void executeAndVerify() {
+    /*...*/
+  }
+}
+```
+
+**Rationale**: Simplifies testing of complex queueable orchestration chains
+
+### LWC Testing Enhancement
+
+**Current State**: ~60% Jest coverage
+**Target**: 90% coverage with comprehensive integration scenarios
+
+**Testing Patterns**:
+
+- **Component State Testing**: Verify reactive property updates
+- **User Interaction Testing**: Mock user inputs and verify component responses
+- **Apex Integration Testing**: Mock controller methods for isolated component testing
+- **Error Handling Testing**: Verify graceful handling of API failures
+
+### Performance Considerations
+
+**Test Execution Time**: Target <2 minutes for full Apex test suite
+**Optimization Strategies**:
+
+- Bulk test data creation using `@TestSetup`
+- Minimal DML operations in test methods
+- Efficient use of `Test.startTest()`/`Test.stopTest()` boundaries
+- Selective use of `@SeeAllData=false` (default)
+
+### Continuous Integration Integration
+
+**Pre-commit Hooks**:
+
+- Jest tests for LWC components
+- Apex syntax validation
+- Code coverage verification
+
+**CI/CD Pipeline**:
+
+- Automated test execution on all pull requests
+- Coverage reporting with failure on <85% coverage
+- Performance monitoring for test execution time
+
+### Maintenance Strategy
+
+**Test Data Evolution**: TestDataFactory pattern ensures single point of change when domain models evolve
+
+**Mock Maintenance**: Centralized HttpCalloutMock framework allows updating API responses across all tests from single location
+
+**Coverage Monitoring**: Automated coverage reports identify areas requiring additional test scenarios
+
+### Known Limitations & Tradeoffs
+
+1. **Async Testing Complexity**: Queueable testing requires careful orchestration of Test.startTest()/stopTest() boundaries
+2. **External API Simulation**: Mock responses must be manually updated when external APIs change
+3. **Platform Event Testing**: Synchronous delivery in tests differs from async production behavior
+4. **Custom Metadata Dependencies**: Tests may need updates when metadata structure changes
+
+This testing architecture provides robust coverage while maintaining maintainability and supporting the application's enterprise-grade async processing requirements.
