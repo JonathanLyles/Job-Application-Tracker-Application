@@ -175,7 +175,10 @@ public with sharing class JobSearchController {
       // Queue async search
       String searchId = JobSearchService.searchJobsAsync(criteria);
 
-      Logger.info('JobSearchController.searchJobs queued async search with searchId: ' + searchId)
+      Logger.info(
+          'JobSearchController.searchJobs queued async search with searchId: ' +
+          searchId
+        )
         .setField('SearchId__c', searchId)
         .setField('Criteria', criteria)
         .setField('JobBoards', selectedBoards);
@@ -260,7 +263,9 @@ public with sharing class JobSearchController {
 
       return status;
     } catch (Exception e) {
-      Logger.error('JobSearchController.getSearchStatus failed: ' + e.getMessage())
+      Logger.error(
+          'JobSearchController.getSearchStatus failed: ' + e.getMessage()
+        )
         .setField('SearchId__c', searchId)
         .setException(e);
       Logger.saveLog();
@@ -487,16 +492,16 @@ public with sharing class JobSearchController {
   @AuraEnabled(cacheable=true)
   public static List<Map<String, Object>> getAvailableJobBoards() {
     List<Map<String, Object>> jobBoards = new List<Map<String, Object>>();
-    
+
     try {
       // Query active job boards from custom metadata, ordered by display order
       List<Job_Board__mdt> boardMetadata = [
         SELECT MasterLabel, API_Name__c, Description__c, Display_Order__c
-        FROM Job_Board__mdt 
-        WHERE Is_Active__c = true 
+        FROM Job_Board__mdt
+        WHERE Is_Active__c = TRUE
         ORDER BY Display_Order__c ASC NULLS LAST, MasterLabel ASC
       ];
-      
+
       for (Job_Board__mdt board : boardMetadata) {
         Map<String, Object> boardOption = new Map<String, Object>();
         boardOption.put('label', board.MasterLabel);
@@ -504,34 +509,41 @@ public with sharing class JobSearchController {
         boardOption.put('description', board.Description__c);
         jobBoards.add(boardOption);
       }
-      
+
       // If no metadata exists, provide fallback options
       if (jobBoards.isEmpty()) {
-        jobBoards.add(new Map<String, Object>{
-          'label' => 'Jooble', 
-          'value' => 'jooble',
-          'description' => 'International job search engine'
-        });
-        jobBoards.add(new Map<String, Object>{
-          'label' => 'Indeed', 
-          'value' => 'indeed',
-          'description' => 'Popular job search platform'
-        });
+        jobBoards.add(
+          new Map<String, Object>{
+            'label' => 'Jooble',
+            'value' => 'jooble',
+            'description' => 'International job search engine'
+          }
+        );
+        jobBoards.add(
+          new Map<String, Object>{
+            'label' => 'Indeed',
+            'value' => 'indeed',
+            'description' => 'Popular job search platform'
+          }
+        );
       }
-      
     } catch (Exception e) {
-      Logger.error('JobSearchController.getAvailableJobBoards failed: ' + e.getMessage())
+      Logger.error(
+          'JobSearchController.getAvailableJobBoards failed: ' + e.getMessage()
+        )
         .setException(e);
       Logger.saveLog();
-      
+
       // Return fallback job boards on error
-      jobBoards.add(new Map<String, Object>{
-        'label' => 'Jooble', 
-        'value' => 'jooble',
-        'description' => 'International job search engine'
-      });
+      jobBoards.add(
+        new Map<String, Object>{
+          'label' => 'Jooble',
+          'value' => 'jooble',
+          'description' => 'International job search engine'
+        }
+      );
     }
-    
+
     return jobBoards;
   }
 }

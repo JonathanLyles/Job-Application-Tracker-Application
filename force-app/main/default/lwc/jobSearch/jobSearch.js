@@ -125,22 +125,30 @@ export default class JobSearch extends LightningElement {
     try {
       // Load available job boards from custom metadata
       const boards = await getAvailableJobBoards();
-      this.jobBoardOptions = boards.map(board => ({
+      this.jobBoardOptions = boards.map((board) => ({
         label: board.label,
         value: board.value,
         description: board.description
       }));
-      
+
       // Default to all job boards selected
-      this.selectedJobBoards = this.jobBoardOptions.map(board => board.value);
+      this.selectedJobBoards = this.jobBoardOptions.map((board) => board.value);
     } catch (error) {
-      console.error('Failed to load job boards:', error);
+      console.error("Failed to load job boards:", error);
       // Set fallback job boards
       this.jobBoardOptions = [
-        { label: 'Jooble', value: 'jooble', description: 'International job search engine' },
-        { label: 'Indeed', value: 'indeed', description: 'Popular job search platform' }
+        {
+          label: "Jooble",
+          value: "jooble",
+          description: "International job search engine"
+        },
+        {
+          label: "Indeed",
+          value: "indeed",
+          description: "Popular job search platform"
+        }
       ];
-      this.selectedJobBoards = ['jooble', 'indeed'];
+      this.selectedJobBoards = ["jooble", "indeed"];
     }
   }
 
@@ -165,7 +173,7 @@ export default class JobSearch extends LightningElement {
   }
 
   handleSelectAllJobBoards() {
-    this.selectedJobBoards = this.jobBoardOptions.map(board => board.value);
+    this.selectedJobBoards = this.jobBoardOptions.map((board) => board.value);
   }
 
   handleClearJobBoards() {
