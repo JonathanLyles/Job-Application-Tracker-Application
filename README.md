@@ -239,9 +239,7 @@ This architectural decision ensures the **Job Application Tracker** remains focu
 
 ## Solution Architecture
 
-This application was built according to the following requirements:
-
-### Multiple External APIs
+### Requirements Mapping
 
 - Support integration with different job boards (e.g., Jooble, Indeed)
 - Abstract API-specific request/response formats via **API wrappers**
