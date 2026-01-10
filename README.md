@@ -101,105 +101,6 @@ Rest of application works with consistent, clean data
 
 ## Architectural Decisions
 
-### Prerequisites
-
-Before deploying the application, ensure you have:
-
-1. A Salesforce org (sandbox, scratch, or production) with API version 58.0+.
-2. Admin access to install unmanaged packages and deploy Apex/metadata.
-3. Installed dependencies (see below).
-
-### Step 1 — Install Dependencies
-
-#### 1.1 Nebula Logger (Unlocked Package)
-
-For complete installation instructions, visit the official Nebula Logger repository:
-**[Nebula Logger](https://github.com/jongpie/NebulaLogger)**
-
-#### 1.2 SFDC Trigger Framework by Kevin O'Hara
-
-For complete installation instructions, visit the official SFDC Trigger Framework repository:
-**[SFDC Trigger Framework](https://github.com/kevinohara80/sfdc-trigger-framework)**
-
-> ⚠️ **Important:** Install **Nebula Logger first**, then the Trigger Framework, before deploying the Job Application Tracker code.
-
-#### 1.3 Configure Project Dependencies
-
-After installing Nebula Logger, update your `sfdx-project.json` to declare the dependency:
-
-```json
-{
-  "packageDirectories": [
-    {
-      "path": "force-app",
-      "default": true,
-      "dependencies": [
-        {
-          "package": "NebulaLogger",
-          "versionNumber": "4.14.15.LATEST"
-        },
-        {
-          "package": "TriggerHandler",
-          "versionNumber": "2.0.0.LATEST"
-        }
-      ]
-    }
-  ],
-  "name": "Job Application Tracker Application",
-  "namespace": "",
-  "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "65.0"
-}
-```
-
-### Step 2 — Deploy Job Application Tracker
-
-#### Deploy via Salesforce CLI
-
-```bash
-# Clone the repo
-git clone https://github.com/JonathanLyles/Job-Application-Tracker-Application.git
-cd Job-Application-Tracker-Application
-
-# Authorize your target org
-sfdx auth:web:login -a MyOrgAlias
-
-# Deploy all metadata
-sfdx force:source:deploy -p force-app/ -u MyOrgAlias
-```
-
-### Step 3 — Verify Setup
-
-1. Check that all **Apex classes** and **triggers** are active.
-2. Confirm that **Nebula Logger** custom objects exist in Setup.
-3. Confirm that **JobApplicationTrigger** is active.
-4. Verify Logger configuration by checking Setup → Custom Settings → Logger Settings.
-5. Optionally, open the LWC in App Builder and verify it renders correctly.
-
-#### Verify Nebula Logger Integration
-
-After deployment, verify that Nebula Logger is working:
-
-```bash
-# Open Developer Console and run this Apex script:
-Logger.info('Job Application Tracker - Setup Verification')
-    .setField('Component', 'Setup')
-    .setField('Status', 'SUCCESS');
-Logger.saveLog();
-
-# Check logs in Setup → Custom Objects → Log → View All
-```
-
-### Step 4 — Run a Test Search
-
-1. Navigate to the **Job Search LWC** in the App.
-2. Enter search criteria: keywords, location, and select job boards.
-3. Click **Search**.
-4. Observe results appear incrementally via Platform Events.
-5. Check debug logs in **Nebula Logger** to confirm logging and progress events.
-
-## Architectural Decisions
-
 ### Dependency Management: Package Dependencies vs Source Code Inclusion
 
 This project follows **dependency management best practices** by using package dependencies rather than source code inclusion for managing third-party dependencies like Nebula Logger and SFDC Trigger Framework.
@@ -212,7 +113,7 @@ This project follows **dependency management best practices** by using package d
 - Dependencies are declared in `sfdx-project.json` and installed separately
 - Clear separation between application code and external packages
 
-> See [Configure Project Dependencies](#13-configure-project-dependencies) for complete configuration example.
+> See [Configure Project Dependencies](#configure-project-dependencies) for complete configuration example.
 
 **Benefits of this approach:**
 
@@ -444,7 +345,13 @@ JobSearchTrackingService (Fan-in)
 | **Single-board search**            | **Progress event only** (incremental)                             | **Progress event** (required) + **Completion event** (optional but recommended). For a single board, the progress event is sufficient to indicate completion, but emitting a completion event provides consistency with the composite scenario and simplifies LWC handling. |
 | **Composite (multi-board) search** | **Progress events** per board + **Completion event** after fan-in | Fan-out creates multiple child queueables, so completion event is necessary to signal that all boards are done.                                                                                                                                                             |
 
-## Separation of Concerns
+## Design Patterns
+
+This section explains the key design patterns used throughout the application and how they work together to create a maintainable, scalable solution.
+
+### Separation of Concerns
+
+The application follows a strict layered architecture where each layer has clearly defined responsibilities:
 
 | Layer         | Folder              | Responsibility            | What It **Does**                                                                                                                                                                                                                                                                                           | What It **Must Not Do**                                          |
 | ------------- | ------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -462,7 +369,141 @@ JobSearchTrackingService (Fan-in)
 | Messaging     | **events/**         | Async Communication       | Define platform event schemas for progress & completion                                                                                                                                                                                                                                                    | No orchestration, no logic                                       |
 | Testing       | **test/**           | Verification              | Validate behavior, async flows, edge cases, failures                                                                                                                                                                                                                                                       | No production logic                                              |
 
-## Folder / File Structure
+### Orchestration Patterns
+
+The application uses multiple levels of orchestration, each responsible for a different aspect:
+
+- **JobSearchController** orchestrates UI → backend transitions
+- **JobSearchService** orchestrates sync → async boundary management
+- **JobSearchOrchestratorQueueable** orchestrates execution flow decisions
+
+Each orchestrator operates at its appropriate abstraction level, ensuring clean separation of concerns.
+
+### Fan-Out Pattern
+
+The **fan-out pattern** is a core architectural component that enables scalable multi-board searches.
+
+#### What is Fan-Out?
+
+Fan-Out means taking one request and splitting it into multiple independent units of work that can run separately.
+
+```text
+One request
+     ↓
+  Split into many
+```
+
+#### How It Works in Our Application
+
+When a user selects multiple job boards:
+
+```text
+Keywords: Salesforce Developer
+Location: Montreal  
+Job Boards: [Jooble, Indeed, LinkedIn]
+```
+
+The system creates independent execution paths:
+
+```text
+CompositeBoardSearchQueueable
+ ├─ SingleBoardSearchQueueable (Jooble)
+ ├─ SingleBoardSearchQueueable (Indeed)
+ └─ SingleBoardSearchQueueable (LinkedIn)
+```
+
+#### Why Fan-Out is Essential
+
+**1️⃣ Salesforce Governor Limits**
+
+Salesforce imposes strict limits per transaction. Fan-out ensures:
+- **One board = one callout = one Queueable**
+- No single transaction exceeds governor limits
+
+**2️⃣ Failure Isolation**
+
+Without fan-out, one board's failure could crash the entire search. With fan-out:
+- Each board executes independently
+- Failures are isolated (e.g., Jooble ❌, Indeed ✅, LinkedIn ✅)
+- Results arrive separately via Platform Events
+
+**3️⃣ Better User Experience**
+
+Fan-out enables the UI to:
+- Show results incrementally
+- Indicate which boards succeeded or failed
+- Avoid waiting for the slowest provider
+
+#### Fan-Out vs Composite Strategy
+
+These are related but distinct concepts:
+
+| Concept            | Purpose                                    |
+| ------------------ | ------------------------------------------ |
+| Composite Strategy | Treat multiple strategies as a single unit |
+| Fan-Out Execution  | Run work in parallel units                 |
+
+**Composite Strategy** exists at the execution logic level, while **Fan-Out** exists at the async orchestration level. This separation keeps strategies simple and single-purpose while safely scaling execution.
+
+#### Implementation Flow
+
+```text
+LWC
+ ↓
+JobSearchController (facade)
+ ↓
+JobSearchService (sync boundary)
+ ↓
+JobSearchOrchestratorQueueable
+ ↓
+CompositeBoardSearchQueueable   ← fan-out happens here
+  ├─ SingleBoardSearchQueueable (Board A)
+  ├─ SingleBoardSearchQueueable (Board B)
+  └─ SingleBoardSearchQueueable (Board C)
+ ↓
+Strategy (build + parse only)
+ ↓
+HTTP Callout
+ ↓
+Persist results + publish Platform Event
+```
+
+### LWC Communication Pattern
+
+The application uses **Platform Events** for decoupled async communication:
+
+- **Queueables publish** `JobSearchCompleted__e` events
+- **LWC subscribes** via empAPI for real-time UI updates
+
+This pattern ensures the UI remains responsive while background processing completes.
+
+### Domain Layer Wrappers
+
+Domain objects represent internal, normalized business concepts:
+
+- **JobSearchCriteria** → normalized user input
+- **JobApplicationDomain** → normalized job posting data used throughout the system
+
+**Purpose:** Provide stable internal representation for queueables, triggers, services, and UI components, independent of raw API fields or JSON formats.
+
+### Strategy Pattern Implementation
+
+The application uses the Strategy pattern to handle different job board APIs:
+
+- **AbstractJobBoardStrategy** defines the contract
+- **Concrete strategies** (JoobleStrategy, IndeedStrategy) implement board-specific logic
+- **JobBoardStrategyRegistry** acts as a factory for strategy resolution
+- **CompositeJobBoardStrategy** coordinates multiple strategies when needed
+
+This pattern enables easy addition of new job boards without modifying existing code.
+
+## Technical Reference
+
+This section provides detailed technical information about the codebase structure, key components, and implementation specifics.
+
+### Project Structure
+
+The application follows a well-organized folder structure that reflects the layered architecture:
 
 ```text
 lwc/
@@ -515,43 +556,98 @@ apex/
 │   └── JobSearchCompleted__e
 │
 └── test/
-
 ```
 
-### Application Controller (a.k.a. Facade)
+### Key Components
 
-The Application Controller (JobSearchController) acts as a **facade** between the LWC UI and the backend application logic. Its responsibilities include:
+#### Application Controller (JobSearchController)
 
-- **Validate inputs** from the UI
-- **Translate UI DTOs → domain objects** (`JobSearchCriteria`)
-- **Create a searchId** for tracking async workflows
-- **Invoke services** to start the search
-- **Handle synchronous exceptions** and return immediate feedback to the UI
+The Application Controller acts as a **facade** between the LWC UI and the backend application logic, implementing a clean separation between the presentation and business layers.
 
-#### Why this pattern is used
+**Primary Responsibilities:**
+- **Input Validation:** Validate user inputs from the UI before processing
+- **Data Translation:** Convert UI DTOs → domain objects (`JobSearchCriteria`)
+- **Search Coordination:** Create searchId for tracking and initiate search workflows
+- **Exception Handling:** Handle synchronous exceptions and provide immediate user feedback
 
-- **Shields the UI from complexity:** The LWC does not need to know about queueables, strategies, callouts, or persistence.
-- **Provides a stable API:** The controller exposes a small, well-defined set of `@AuraEnabled` methods that the UI can reliably use.
-- **Allows internals to evolve freely:** Services, queueables, and strategies can change, scale, or be refactored without affecting the UI layer.
+**Architectural Benefits:**
+- **UI Isolation:** Shields the LWC from complex backend concerns (queueables, strategies, callouts, persistence)
+- **Stable Interface:** Provides well-defined `@AuraEnabled` methods that remain consistent as backend evolves
+- **Evolution Support:** Internal services, queueables, and strategies can change without affecting the UI layer
 
-> This is **not traditional MVC** — the controller does not handle view rendering or business logic. Instead, it aligns more closely with **Hexagonal/Clean Architecture**, acting as an adapter between the external world (UI) and the core application logic, ensuring separation of concerns and testability.
+**Design Note:** This follows **Hexagonal/Clean Architecture** principles rather than traditional MVC. The controller acts as an adapter between the external world (UI) and core application logic, ensuring proper separation of concerns and testability.
 
-## Orchestration Patterns
+#### Domain Objects
 
-JobSearchController orchestrates UI → backend
+**JobSearchCriteria**
+- Encapsulates normalized user search inputs
+- Provides validation and business rules for search parameters
+- Acts as the standard format for passing search criteria through the system
 
-JobSearchService orchestrates sync → async
+**JobApplicationDomain**  
+- Represents normalized job posting data used throughout the application
+- Provides consistent data structure independent of source job board APIs
+- Encapsulates business logic related to job application processing
 
-JobSearchOrchestratorQueueable orchestrates execution flow
+#### Service Layer
 
-Each one orchestrates at a different level.
+**JobSearchService**
+- Manages the sync → async boundary for search operations  
+- Decides between single vs composite search strategies
+- Initiates orchestration workflows
 
-## LWC Communication Pattern
+**JobSearchTrackingService**
+- Implements fan-in coordination for composite searches
+- Tracks completion status across multiple job boards
+- Aggregates final results and publishes completion events
 
-Platorm Events
+#### Integration Layer
 
-- Queueable publishes JobSearchCompledted\_\_e
-- LWC subscribes via empAPI
+**Strategy Registry (JobBoardStrategyRegistry)**
+- Maps job board identifiers to concrete strategy implementations
+- Provides factory-like resolution of board-specific logic
+- Validates supported job boards and handles strategy instantiation
+
+**Concrete Strategies**
+- **JoobleStrategy / IndeedStrategy:** Board-specific API integration logic
+- **CompositeJobBoardStrategy:** Coordinates multiple board strategies for composite searches
+- **AbstractJobBoardStrategy:** Defines common contract for all job board integrations
+
+#### Orchestration Layer
+
+**JobSearchOrchestratorQueueable**
+- Main async orchestration entry point
+- Routes to appropriate search strategy (single vs composite)
+- Manages high-level workflow coordination
+
+**SingleBoardSearchQueueable**
+- Handles individual job board searches  
+- Executes HTTP callouts, parses responses, persists results
+- Publishes progress and completion events
+
+**CompositeBoardSearchQueueable**
+- Implements fan-out pattern for multi-board searches
+- Creates and enqueues individual SingleBoardSearchQueueable instances
+- Coordinates parallel execution across multiple job boards
+
+#### Data Layer
+
+**JobApplicationTrigger + JobApplicationTriggerHandler**
+- Uses **Kevin O'Hara trigger framework** for robust, bulk-safe trigger handling
+- Reacts to Job_Application__c record changes (insert/update)
+- Delegates to JobApplicationTaskHelper for business logic
+
+**JobApplicationTaskHelper**
+- Creates Task records based on Job_Application__c status
+- Implements idempotent, bulk-safe task creation logic
+- Handles post-persistence business rules without external integrations
+
+#### Messaging & Events
+
+**Platform Events (JobSearchCompleted__e)**
+- Enables decoupled communication between async processing and UI
+- Provides real-time progress updates and completion notifications
+- Supports correlation via searchId for traceability
 
 ## Fan-Out Pattern
 
@@ -1175,3 +1271,102 @@ SingleBoardSearchQueueable.SearchConfig config = SingleBoardSearchQueueable.Sear
 - ✅ **Comprehensive assertion coverage** with descriptive failure messages
 
 The codebase now meets enterprise-grade quality standards while maintaining full functionality and comprehensive test coverage.
+
+## Installation & Setup
+
+### Prerequisites
+
+Before deploying the application, ensure you have:
+
+1. A Salesforce org (sandbox, scratch, or production) with **API version 58.0+**.
+2. Admin access to install unmanaged packages and deploy Apex/metadata.
+3. Installed dependencies (see below).
+
+### Step 1 — Install Dependencies
+
+#### 1.1 Nebula Logger (Unlocked Package)
+
+For complete installation instructions, visit the official Nebula Logger repository:
+**[Nebula Logger](https://github.com/jongpie/NebulaLogger)**
+
+#### 1.2 SFDC Trigger Framework by Kevin O'Hara
+
+For complete installation instructions, visit the official SFDC Trigger Framework repository:
+**[SFDC Trigger Framework](https://github.com/kevinohara80/sfdc-trigger-framework)**
+
+> ⚠️ **Important:** Install **Nebula Logger first**, then the Trigger Framework, before deploying the Job Application Tracker code.
+
+#### 1.3 Configure Project Dependencies
+
+After installing Nebula Logger, update your `sfdx-project.json` to declare the dependency:
+
+```json
+{
+  "packageDirectories": [
+    {
+      "path": "force-app",
+      "default": true,
+      "dependencies": [
+        {
+          "package": "NebulaLogger",
+          "versionNumber": "4.14.15.LATEST"
+        },
+        {
+          "package": "TriggerHandler",
+          "versionNumber": "2.0.0.LATEST"
+        }
+      ]
+    }
+  ],
+  "name": "Job Application Tracker Application",
+  "namespace": "",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "65.0"
+}
+```
+
+### Step 2 — Deploy Job Application Tracker
+
+#### Deploy via Salesforce CLI
+
+```bash
+# Clone the repo
+git clone https://github.com/JonathanLyles/Job-Application-Tracker-Application.git
+cd Job-Application-Tracker-Application
+
+# Authorize your target org
+sfdx auth:web:login -a MyOrgAlias
+
+# Deploy all metadata
+sfdx force:source:deploy -p force-app/ -u MyOrgAlias
+```
+
+### Step 3 — Verify Setup
+
+1. Check that all **Apex classes** and **triggers** are active.
+2. Confirm that **Nebula Logger** custom objects exist in Setup.
+3. Confirm that **JobApplicationTrigger** is active.
+4. Verify Logger configuration by checking Setup → Custom Settings → Logger Settings.
+5. Optionally, open the LWC in App Builder and verify it renders correctly.
+
+#### Verify Nebula Logger Integration
+
+After deployment, verify that Nebula Logger is working:
+
+```bash
+# Open Developer Console and run this Apex script:
+Logger.info('Job Application Tracker - Setup Verification')
+    .setField('Component', 'Setup')
+    .setField('Status', 'SUCCESS');
+Logger.saveLog();
+
+# Check logs in Setup → Custom Objects → Log → View All
+```
+
+### Step 4 — Run a Test Search
+
+1. Navigate to the **Job Search LWC** in the App.
+2. Enter search criteria: keywords, location, and select job boards.
+3. Click **Search**.
+4. Observe results appear incrementally via Platform Events.
+5. Check debug logs in **Nebula Logger** to confirm logging and progress events.
