@@ -150,24 +150,7 @@ This project follows **package dependency best practices** for managing third-pa
 - Dependencies are declared in `sfdx-project.json` and installed separately
 - Clear separation between application code and external packages
 
-**Configuration:**
-
-```json
-{
-  "packageDirectories": [
-    {
-      "path": "force-app",
-      "default": true,
-      "dependencies": [
-        {
-          "package": "NebulaLogger",
-          "versionNumber": "4.14.15.LATEST"
-        }
-      ]
-    }
-  ]
-}
-```
+> See [Configure Project Dependencies](#13-configure-project-dependencies) for complete configuration example.
 
 **Benefits of this approach:**
 
