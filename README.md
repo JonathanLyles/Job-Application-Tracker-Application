@@ -2,20 +2,20 @@
 
 # Salesforce Job Application Tracker
 
-This repository contains a **Salesforce-native Job Application Tracker**, designed to help users search and track job postings across multiple job boards (e.g. Jooble, Google Jobs, etc). The application is built using modern Salesforce best practices, including **Queueable Apex, Strategy Patterns, Domain-Driven Design, Platform Events, and robust trigger handling**.
+This repository contains a Salesforce-native Job Application Tracker, designed to help users search and track job postings across multiple job boards (e.g. Jooble, Google Jobs, etc). The application is built using modern Salesforce best practices, including Queueable Apex, Strategy Patterns, Domain-Driven Design, Platform Events, and robust trigger handling.
 
 ## Key Features
 
-- **Multi-Board Job Search:** Query multiple external APIs in parallel using a composite strategy with fan-out/fan-in orchestration.
+- **Multi-Board Job Search:** Queries multiple external APIs in parallel using a composite strategy with fan-out/fan-in orchestration.
 - **Async Execution:** Queueable Apex ensures scalable, governor-limit-safe callouts while providing incremental updates to the UI.
 - **Normalized Domain Model:** External API responses are normalized into consistent domain objects (`JobApplicationDomain`) for downstream processing and persistence.
 - **Robust Logging:** Integrated **Nebula Logger** provides consistent, correlated logs across controllers, services, queueables, strategies, and triggers.
-- **Trigger-Driven Task Creation:** Uses the Kevin O’Hara trigger framework to create follow-up Tasks based on the status of persisted `Job_Application__c` records.
+- **Trigger-Driven Task Creation:** Uses SFDC trigger framework by Kevin O’Hara to create follow-up Tasks based on the status of persisted `Job_Application__c` records.
 - **Extensible Architecture:** Adding new job boards is straightforward — implement a strategy, register it, and the system handles orchestration, logging, and event notifications automatically.
 
 ## Purpose
 
-This project demonstrates a **scalable and maintainable architecture** for integrating Salesforce with multiple external APIs, handling asynchronous processing, and providing real-time UI updates. It follows **Hexagonal / Clean Architecture principles**, separating concerns across the UI, application services, strategies, queueables, and triggers, while ensuring observability, robustness, and ease of testing.
+This project demonstrates a scalable and maintainable architecture for integrating Salesforce with multiple external APIs, handling asynchronous processing, and providing real-time UI updates. It follows **Hexagonal / Clean Architecture principles**, separating concerns across the UI, application services, strategies, queueables, and triggers, while ensuring observability, robustness, and ease of testing.
 
 ## Setup Instructions
 
@@ -23,7 +23,7 @@ This project demonstrates a **scalable and maintainable architecture** for integ
 
 Before deploying the application, ensure you have:
 
-1. A Salesforce org (sandbox, scratch, or production) with **API version 58.0+**.
+1. A Salesforce org (sandbox, scratch, or production) with API version 58.0+.
 2. Admin access to install unmanaged packages and deploy Apex/metadata.
 3. Installed dependencies (see below).
 
@@ -31,53 +31,27 @@ Before deploying the application, ensure you have:
 
 #### 1.1 Nebula Logger
 
-**Option A: Install via Salesforce CLI (Recommended)**
+For complete installation instructions, visit the official Nebula Logger repository:
+**[Nebula Logger Installation Guide](https://github.com/jongpie/NebulaLogger#getting-started)**
 
-```bash
-# Install Nebula Logger unlocked package
-sf package install --package 04t5Y0000023NSRQA2 --target-org your-org-alias --wait 10
+The repository provides up-to-date installation options including:
 
-# Verify installation
-sf org open --target-org your-org-alias
-```
-
-**Option B: Install via Browser**
-
-1. Open this link in your browser while logged into your org:
-   [Install Nebula Logger](https://github.com/jongpie/NebulaLogger/releases/latest)
-2. Follow the prompts to install the unlocked package.
-3. Grant access to all users.
-
-**Option C: AppExchange**
-
-1. Search "Nebula Logger" on Salesforce AppExchange
-2. Install by Jon Pie
-3. Grant access to all users
+- Salesforce CLI installation
+- Browser-based installation
+- AppExchange installation
+- Configuration guidance
 
 #### 1.2 Kevin O’Hara Trigger Framework
 
-**Option A: Install via Salesforce CLI (Recommended)**
+For complete installation instructions, visit the official SFDC Trigger Framework repository:
+**[SFDC Trigger Framework Installation Guide](https://github.com/kevinohara80/sfdc-trigger-framework#installation)**
 
-```bash
-# Install Trigger Handler unlocked package
-sf package install --package 04t6g000007h8DKAAY --target-org your-org-alias --wait 10
+The repository provides up-to-date installation options including:
 
-# Verify installation
-sf org open --target-org your-org-alias
-```
-
-**Option B: Install via Browser**
-
-1. Open this link in your browser while logged into your org:
-   [Install Trigger Framework](https://github.com/kevinohara80/sfdc-trigger-framework)
-2. Follow the installation instructions for the unlocked package.
-3. Grant access to all users.
-
-**Option C: GitHub**
-
-1. Visit [Kevin O'Hara's Trigger Framework](https://github.com/kevinohara80/sfdc-trigger-framework)
-2. Use the provided package installation link
-3. Grant access to all users
+- Salesforce CLI installation
+- Browser-based installation
+- Direct deployment from source
+- Configuration guidance
 
 > ⚠️ **Important:** Install **Nebula Logger first**, then the Trigger Framework, before deploying the Job Application Tracker code.
 
