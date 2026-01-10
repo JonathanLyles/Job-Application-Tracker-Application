@@ -17,7 +17,89 @@ This repository contains a Salesforce-native Job Application Tracker, designed t
 
 This project demonstrates a scalable and maintainable architecture for integrating Salesforce with multiple external APIs, handling asynchronous processing, and providing real-time UI updates. It follows **Hexagonal / Clean Architecture principles**, separating concerns across the UI, application services, strategies, queueables, and triggers, while ensuring observability, robustness, and ease of testing.
 
-## Setup Instructions
+## Requirements
+
+This application was built according to the following requirements:
+
+### Multiple External APIs
+
+- Support integration with different job boards (e.g., Jooble, Indeed)
+- Abstract API-specific request/response formats via **API wrappers**
+- Normalize results into a common **domain wrapper** (`JobApplicationDomain`) for consistent downstream processing
+
+### Async Execution & Scalability
+
+- Use **Queueable Apex** for callouts and orchestration
+- Support **fan-out/fan-in** patterns for composite searches across multiple boards
+- Ensure **bulk-safe persistence** to `Job_Application__c` and reactive triggers for task creation
+
+### Single and Composite Strategies
+
+- Dynamically choose strategy based on user-selected boards
+- Use **strategy registry** to resolve board-specific logic
+- Composite searches allow parallel processing of multiple boards with progress tracking
+
+### Comprehensive Logging
+
+- Integrate **Nebula Logger** throughout layers: controllers, services, queueables, strategies, triggers
+- Track workflow, retries, progress, errors, and events with **searchId correlation**
+- Ensure all log entries across layers include **searchId** (and queueable ID if applicable) for consistent correlation and traceability
+- Enable observability for troubleshooting, audit, and monitoring
+
+### Robust Trigger Handling
+
+- Use **Kevin O'Hara trigger framework** for `Job_Application__c`
+- Handle post-persistence logic (e.g., task creation) in a **bulk-safe, idempotent manner** (Idempotent - checks if task already exists)
+- Ensure triggers **react to changes**, not orchestrate external calls
+
+### Data Normalization Pattern
+
+**The Problem:** Each job board API returns data in completely different formats, but our application needs to work with consistent data internally.
+
+**The Solution:** Separate "defining the standard format" from "transforming into that format."
+
+**Two-Layer Approach:**
+
+🏗️ **Domain Layer** - **DEFINES** the standard data structures
+
+- Contains class definitions that specify what our normalized data looks like
+- Examples: `JobSearchCriteria.cls`, `JobApplicationDomain.cls`
+- Think of this as creating the "blueprint" or "template" for how data should be structured
+- No transformation logic - just defines properties, validation rules, and data structure
+
+⚙️ **Strategy Layer** - **TRANSFORMS** external data into those standard structures
+
+- Contains the actual conversion logic from messy external APIs → clean domain objects
+- Examples: `JoobleStrategy.cls` takes Jooble JSON → creates `JobApplicationDomain` objects
+- Think of this as the "assembly line" that takes raw materials and shapes them to match the blueprint
+
+**Data Flow Example:**
+
+```text
+User enters "Software Developer" + "New York"
+    ↓
+JobSearchCriteria (Domain Layer defines this structure)
+    ↓
+JoobleStrategy (Strategy Layer transforms this into Jooble API format)
+    ↓
+Jooble API returns messy JSON response
+    ↓
+JoobleStrategy (Strategy Layer transforms JSON into domain format)
+    ↓
+JobApplicationDomain (Domain Layer defines this structure)
+    ↓
+Rest of application works with consistent, clean data
+```
+
+**Why this separation works:** Domain Layer stays simple and stable (just data definitions), while Strategy Layer handles all the messy API-specific transformation logic.
+
+### Future Growth & Extensibility
+
+- New job boards can be added by implementing a strategy and registering it in the registry
+- Architecture supports **scalable orchestration**, additional logging, retries, and new event types
+- Modular design allows for **separation of concerns**, maintainability, and easier testing
+
+## Architectural Decisions
 
 ### Prerequisites
 
@@ -120,7 +202,7 @@ Logger.saveLog();
 
 ### Dependency Management: Package Dependencies vs Source Code Inclusion
 
-This project follows package dependency best practices for managing third-party dependencies like Nebula Logger and SFDC Trigger Framework, rather than including external source code directly in the repository.
+This project follows **dependency management best practices** by using package dependencies rather than source code inclusion for managing third-party dependencies like Nebula Logger and SFDC Trigger Framework.
 
 #### ✅ **Chosen Approach: Package Dependencies**
 
@@ -141,17 +223,6 @@ This project follows package dependency best practices for managing third-party 
 5. **🔧 Standard Practice:** Follows established patterns in Salesforce development community
 6. **⚡ Easier Maintenance:** No need to track upstream changes or maintain forks
 
-**Deployment workflow:**
-
-```bash
-# 1. Install dependencies first
-sf package install --package 04t5Y0000023NSRQA2 --target-org your-org  # Nebula Logger
-sf package install --package 04t6g000007h8DKAAY --target-org your-org  # Trigger Framework
-
-# 2. Then deploy your application
-sf project deploy start --source-dir force-app --target-org your-org
-```
-
 #### ❌ **Alternative Approach: Source Code Inclusion (Not Recommended)**
 
 Including third-party source code (Nebula Logger, Trigger Framework, etc.) directly would create:
@@ -166,7 +237,7 @@ Including third-party source code (Nebula Logger, Trigger Framework, etc.) direc
 
 This architectural decision ensures the **Job Application Tracker** remains focused on its core business logic while leveraging enterprise-grade logging capabilities through a well-maintained, external package. This approach promotes **maintainability, clarity, and follows Salesforce development best practices**.
 
-## Requirements
+## Solution Architecture
 
 This application was built according to the following requirements:
 
