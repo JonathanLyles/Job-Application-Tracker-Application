@@ -27,9 +27,12 @@ public class JobSearchOrchestratorQueueable implements Queueable {
    * @param context QueueableContext from Salesforce platform
    */
   public void execute(QueueableContext context) {
-    Logger.info('JobSearchOrchestratorQueueable.execute() starting')
-      .setField('SearchId__c', searchId)
-      .setField('Criteria', criteria);
+    System.debug(
+      'JobSearchOrchestratorQueueable.execute() - searchId: ' + searchId
+    );
+    System.debug(
+      'JobSearchOrchestratorQueueable.execute() - criteria: ' + criteria
+    );
 
     try {
       List<String> selectedBoards = criteria.selectedBoards;
@@ -70,10 +73,6 @@ public class JobSearchOrchestratorQueueable implements Queueable {
    * @param errorMessage Details of the failure
    */
   private void publishFailureEvent(String errorMessage) {
-    Logger.error('JobSearchOrchestratorQueueable publishing failure event')
-      .setField('SearchId__c', searchId)
-      .setField('ErrorMessage', errorMessage);
-    
     JobSearchCompleted__e event = new JobSearchCompleted__e(
       SearchId__c = searchId,
       Status__c = 'FAILURE',
@@ -82,6 +81,5 @@ public class JobSearchOrchestratorQueueable implements Queueable {
     );
 
     EventBus.publish(event);
-    Logger.saveLog();
   }
 }

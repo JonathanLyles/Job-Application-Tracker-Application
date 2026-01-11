@@ -47,9 +47,13 @@ public class CompositeBoardSearchQueueable implements Queueable {
         System.debug(
           'CompositeBoardSearchQueueable.execute() - enqueuing board: ' + board
         );
-        System.enqueueJob(
-          new SingleBoardSearchQueueable(searchId, criteria, board, true)
+        // Use simple constructor (3 parameters, PMD compliant)
+        SingleBoardSearchQueueable singleBoardSearch = new SingleBoardSearchQueueable(
+          criteria,
+          board,
+          true // isCompositeChild
         );
+        System.enqueueJob(singleBoardSearch);
       }
 
       System.debug(

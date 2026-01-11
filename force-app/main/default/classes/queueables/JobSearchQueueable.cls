@@ -8,16 +8,16 @@
  */
 public with sharing class JobSearchQueueable implements Queueable, Database.AllowsCallouts {
   private JobSearchCriteria criteria;
-  private String searchId;
+  private String requestId;
 
   /**
    * Constructor for queueable job search
    * @param criteria Search parameters
-   * @param searchId Unique identifier for tracking this request
+   * @param requestId Unique identifier for tracking this request
    */
-  public JobSearchQueueable(JobSearchCriteria criteria, String searchId) {
+  public JobSearchQueueable(JobSearchCriteria criteria, String requestId) {
     this.criteria = criteria;
-    this.searchId = searchId;
+    this.requestId = requestId;
   }
 
   /**
@@ -52,15 +52,11 @@ public with sharing class JobSearchQueueable implements Queueable, Database.Allo
 
       // Store results (implementation would depend on storage mechanism)
       // For now, we'll use debug logs
-      Logger.info('Job search completed successfully')
-        .setField('SearchId__c', searchId)
-        .setField('ValidResults', validResults.size());
+      System.debug('Job search completed for request: ' + requestId);
+      System.debug('Found ' + validResults.size() + ' valid job postings');
     } catch (Exception e) {
-      Logger.error('Error in job search queueable')
-        .setField('SearchId__c', searchId)
-        .setException(e);
+      System.debug('Error in job search queueable: ' + e.getMessage());
+      // Error handling logic here
     }
-    
-    Logger.saveLog();
   }
 }

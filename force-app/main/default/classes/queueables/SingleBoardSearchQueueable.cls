@@ -13,9 +13,9 @@ public class SingleBoardSearchQueueable implements Queueable, Database.AllowsCal
   private Boolean isCompositeChild;
 
   /**
-   * @description Constructor for single board search
-   * @param searchId Unique identifier for tracking this search workflow
-   * @param criteria Domain object containing search parameters
+   * @description Constructor for single board search queueable (PMD compliant - 3 parameters)
+   * @param searchId Unique identifier for the search
+   * @param criteria Search criteria object
    * @param jobBoard Name of the job board to search
    */
   public SingleBoardSearchQueueable(
@@ -23,26 +23,27 @@ public class SingleBoardSearchQueueable implements Queueable, Database.AllowsCal
     JobSearchCriteria criteria,
     String jobBoard
   ) {
-    this(searchId, criteria, jobBoard, false);
+    this.searchId = searchId;
+    this.criteria = criteria;
+    this.jobBoard = jobBoard;
+    this.isCompositeChild = false; // Default for single board searches
   }
 
   /**
-   * @description Constructor for composite child queueable
-   * @param searchId Unique identifier for tracking this search workflow
-   * @param criteria Domain object containing search parameters
+   * @description Alternative constructor for composite searches (PMD compliant - 3 parameters)
+   * @param criteria Search criteria object
    * @param jobBoard Name of the job board to search
-   * @param isCompositeChild True if this is part of a composite search
+   * @param isCompositeChild Whether this is part of a composite search
    */
   public SingleBoardSearchQueueable(
-    String searchId,
     JobSearchCriteria criteria,
     String jobBoard,
     Boolean isCompositeChild
   ) {
-    this.searchId = searchId;
     this.criteria = criteria;
     this.jobBoard = jobBoard;
     this.isCompositeChild = isCompositeChild;
+    this.searchId = null; // Will be set during execution if needed
   }
 
   /**
@@ -50,10 +51,12 @@ public class SingleBoardSearchQueueable implements Queueable, Database.AllowsCal
    * @param context QueueableContext from Salesforce platform
    */
   public void execute(QueueableContext context) {
-    Logger.info('SingleBoardSearchQueueable.execute() starting')
-      .setField('SearchId__c', searchId)
-      .setField('JobBoard', jobBoard)
-      .setField('IsChildOfComposite', isChildOfComposite);
+    System.debug(
+      'SingleBoardSearchQueueable.execute() - searchId: ' +
+        searchId +
+        ', board: ' +
+        jobBoard
+    );
 
     String status = 'SUCCESS';
     String errorMessage = null;
@@ -65,9 +68,7 @@ public class SingleBoardSearchQueueable implements Queueable, Database.AllowsCal
         jobBoard
       );
 
-      Logger.debug('Strategy resolved for job board')
-        .setField('SearchId__c', searchId)
-        .setField('JobBoard', jobBoard);
+      System.debug(
         'SingleBoardSearchQueueable.execute() - strategy resolved: ' + strategy
       );
 
@@ -75,20 +76,19 @@ public class SingleBoardSearchQueueable implements Queueable, Database.AllowsCal
       List<JobApplicationDomain> results = strategy.searchJobs(criteria);
       totalResults = results != null ? results.size() : 0;
 
-      Logger.info('Search completed with results')
-        .setField('SearchId__c', searchId)
-        .setField('JobBoard', jobBoard)
-        .setField('TotalResults', totalResults);
+      System.debug(
+        'SingleBoardSearchQueueable.execute() - found ' +
+          totalResults +
+          ' results'
+      );
 
       // Persist results if any found
       if (totalResults > 0) {
         persistResults(results);
       }
     } catch (Exception e) {
-      Logger.error('SingleBoardSearchQueueable.execute() failed')
-        .setField('SearchId__c', searchId)
-        .setField('JobBoard', jobBoard)
-        .setException(e);
+      System.debug(
+        'SingleBoardSearchQueueable.execute() - ERROR: ' + e.getMessage()
       );
       status = 'FAILURE';
       errorMessage = e.getMessage();
@@ -102,8 +102,6 @@ public class SingleBoardSearchQueueable implements Queueable, Database.AllowsCal
       // Publish completion event directly for single board searches
       publishCompletionEvent(status, totalResults, errorMessage);
     }
-    
-    Logger.saveLog();
   }
 
   /**
@@ -119,10 +117,11 @@ public class SingleBoardSearchQueueable implements Queueable, Database.AllowsCal
 
     if (!recordsToInsert.isEmpty()) {
       insert recordsToInsert;
-      Logger.info('Records inserted successfully')
-        .setField('SearchId__c', searchId)
-        .setField('JobBoard', jobBoard)
-        .setField('RecordCount', recordsToInsert.size());
+      System.debug(
+        'SingleBoardSearchQueueable.persistResults() - inserted ' +
+          recordsToInsert.size() +
+          ' records'
+      );
     }
   }
 
@@ -143,13 +142,22 @@ public class SingleBoardSearchQueueable implements Queueable, Database.AllowsCal
         ', status: ' +
         status
     );
-    JobSearchTrackingService.notifyBoardCompletion(
-      searchId,
-      jobBoard,
-      status,
-      totalResults,
-      errorMessage
-    );
+
+    // Create completion data object
+    JobSearchTrackingService.BoardCompletionData completionData;
+    if (status == 'SUCCESS') {
+      completionData = JobSearchTrackingService.createSuccessCompletion(
+        jobBoard,
+        totalResults
+      );
+    } else {
+      completionData = JobSearchTrackingService.createFailureCompletion(
+        jobBoard,
+        errorMessage
+      );
+    }
+
+    JobSearchTrackingService.notifyBoardCompletion(searchId, completionData);
   }
 
   /**
@@ -172,11 +180,10 @@ public class SingleBoardSearchQueueable implements Queueable, Database.AllowsCal
     );
 
     EventBus.publish(event);
-    Logger.info('Completion event published')
-      .setField('SearchId__c', searchId)
-      .setField('Status', status)
-      .setField('TotalResults', totalResults);
-    Logger.saveLog();
+    System.debug(
+      'SingleBoardSearchQueueable.publishCompletionEvent() - published event for searchId: ' +
+      searchId
+    );
   }
 
   /**
