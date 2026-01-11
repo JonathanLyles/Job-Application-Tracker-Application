@@ -15,7 +15,7 @@
  *
  * 2. CONTROLLER LAYER (JobSearchController) - APPLICATION ORCHESTRATION
  *    ├─> Input Orchestration: Validates, sanitizes, and transforms UI inputs into domain objects
- *    ├─> Workflow Coordination: Manages sequence of operations across service boundaries  
+ *    ├─> Workflow Coordination: Manages sequence of operations across service boundaries
  *    ├─> Async Process Management: Initiates, tracks, and reports on background operations
  *    ├─> Data Translation: Converts between UI formats, domain objects, and service responses
  *    ├─> Error Orchestration: Catches service exceptions and translates to user-friendly messages
@@ -48,12 +48,12 @@
  *
  * Flow 1: Job Search Initiation
  * [LWC] ──search params──> [searchJobs()]
- *   ├─> Input: keywords, location, workTypes, selectedBoards  
+ *   ├─> Input: keywords, location, workTypes, selectedBoards
  *   ├─> Creates: JobSearchCriteria domain object
  *   ├─> Delegates: JobSearchService.searchJobsAsync()
  *   └─> Output: searchId (e.g., "JSR-20240102123045-347")
  *
- * Flow 2: Async Processing & Status Polling  
+ * Flow 2: Async Processing & Status Polling
  * [LWC] ──searchId──> [getSearchStatus()]
  *   ├─> Input: searchId from previous search
  *   ├─> Checks: AsyncApexJob status + cached results
@@ -76,32 +76,8 @@
  *
  * Cross-Flow Data Transformations:
  * • UI Format ↔ Domain Objects ↔ Salesforce Records
- * • External APIs → Domain Objects → UI Format  
+ * • External APIs → Domain Objects → UI Format
  * • Search Criteria → Strategy Parameters → API Requests
- *
-
- *
- * ORCHESTRATION RESPONSIBILITIES:
- * ================================
- *
- * ┌─ APPLICATION ORCHESTRATION (Controller Layer) ────────────────────────────┐
- * │ • Input Coordination: Validate UI inputs → Transform → Create domain objects │
- * │ • Workflow Sequencing: Chain service calls → Handle dependencies → Manage state │
- * │ • Process Lifecycle: Start async operations → Track progress → Report completion │
- * │ • Data Flow Management: UI format ↔ Domain objects ↔ Service responses   │
- * │ • Exception Translation: Service errors → User-friendly messages → UI feedback │
- * │ • Cross-Layer Communication: Coordinate between UI, Service, and Domain layers │
- * │ • Security Orchestration: Validate permissions → Apply access controls    │
- * │ • Transaction Coordination: Define operation boundaries → Manage rollbacks │
- * │   ↓ DELEGATES business logic orchestration to Service Layer               │
- * └────────────────────────────────────────────────────────────────────────────┘
- *
- * ┌─ BUSINESS LOGIC ORCHESTRATION (Service Layer) ────────────────────────────┐
- * │ • Domain Process Coordination (delegated from Controller)                │
- * │ • Business Rule Implementation and Enforcement                           │
- * │ • Complex Workflow Management and State Transitions                      │
- * │ • External Integration Strategy Selection and Execution                  │
- * └────────────────────────────────────────────────────────────────────────────┘
  *
  * ASYNC PROCESSING FLOW:
  * ---------------------
@@ -128,18 +104,6 @@
 public with sharing class JobSearchController {
   /**
    * ENTRY POINT: Initiates asynchronous job search across multiple job boards
-   *
-
-   *
-   * RESPONSIBILITIES:
-   * • Input validation and sanitization
-   * • Parameter transformation (UI → Domain objects)
-   * • Async operation initiation
-   * • Error handling with user-friendly messages
-   *
-   * ARCHITECTURAL ROLE:
-   * This method acts as the primary coordinator between the presentation layer (LWC)
-   * and the service layer (JobSearchService), ensuring proper data flow initiation.
    *
    * @param keywords User-provided search terms
    * @param location Geographic search constraint
@@ -186,18 +150,6 @@ public with sharing class JobSearchController {
   /**
    * STATUS POLLING: Retrieves progress and results of async job search operation
    *
-
-   *
-   * RESPONSIBILITIES:
-   * • Async operation status monitoring
-   * • Result retrieval and caching management
-   * • Data transformation (Domain → UI format)
-   * • Progress reporting and user communication
-   *
-   * ARCHITECTURAL ROLE:
-   * This method bridges the gap between async processing (service layer) and
-   * real-time UI updates (presentation layer), enabling responsive user experience.
-   *
    * @param searchId Unique identifier from searchJobs() call
    * @return Map containing status, progress, and results data
    * @throws AuraHandledException When searchId is invalid or system errors occur
@@ -243,18 +195,6 @@ public with sharing class JobSearchController {
 
   /**
    * CONFIGURATION ENDPOINT: Provides metadata about available job board integrations
-   *
-
-   *
-   * RESPONSIBILITIES:
-   * • Discovery of available integrations
-   * • Requirement gathering for UI validation
-   * • Configuration caching for performance
-   * • Error isolation (per-board failure handling)
-   *
-   * ARCHITECTURAL ROLE:
-   * This method enables dynamic UI configuration, allowing the frontend to
-   * adapt to available integrations without code changes.
    *
    * @return Map containing board names and their field requirements
    * @throws AuraHandledException When registry access fails or critical errors occur
@@ -305,18 +245,6 @@ public with sharing class JobSearchController {
 
   /**
    * PERSISTENCE ENDPOINT: Converts external job posting to Salesforce record
-   *
-
-   *
-   * RESPONSIBILITIES:
-   * • Data format transformation and validation
-   * • Business rule enforcement via domain layer
-   * • Salesforce persistence with error handling
-   * • Transaction boundary management
-   *
-   * ARCHITECTURAL ROLE:
-   * This method completes the job search workflow by converting external
-   * job opportunities into tracked Salesforce records for application management.
    *
    * @param jobData Standardized job posting data from search results
    * @return String Salesforce ID of created Job_Application__c record
