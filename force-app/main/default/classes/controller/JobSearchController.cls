@@ -68,11 +68,11 @@
  *   └─> Output: {availableBoards[], boardRequirements{}}
  *
  * Flow 4: Job Application Creation
- * [LWC] ──job selection──> [createJobApplication()]
- *   ├─> Input: Map<String,Object> (selected job data)
- *   ├─> Reconstructs: JobApplicationDomain from Map
- *   ├─> Transforms: Domain → Job_Application__c SObject
- *   └─> Output: Salesforce record ID
+ * [LWC] ──job selection(s)──> [createJobApplications()]
+ *   ├─> Input: List<Map<String,Object>> (selected job data)
+ *   ├─> Reconstructs: JobApplicationDomain[] from Maps
+ *   ├─> Transforms: Domain[] → Job_Application__c[] SObjects
+ *   └─> Output: List<Salesforce record IDs>
  *
  * Cross-Flow Data Transformations:
  * • UI Format ↔ Domain Objects ↔ Salesforce Records
@@ -92,7 +92,7 @@
  *   getSearchStatus() → checks job status → returns progress + results when complete
  *
  * Phase 4: Result Handling
- *   createJobApplication() → converts selected job to domain object → persists to Salesforce
+ *   createJobApplications() → converts selected jobs to domain objects → persists to Salesforce
  *
  * This design ensures:
  * • Responsive UI (non-blocking operations)
@@ -244,47 +244,65 @@ public with sharing class JobSearchController {
   }
 
   /**
-   * PERSISTENCE ENDPOINT: Converts external job posting to Salesforce record
+   * PERSISTENCE ENDPOINT: Converts external job postings to Salesforce records (bulkified)
    *
-   * @param jobData Standardized job posting data from search results
-   * @return String Salesforce ID of created Job_Application__c record
+   * @param jobDataList List of standardized job posting data from search results
+   * @return List<String> Salesforce IDs of created Job_Application__c records
    * @throws AuraHandledException When validation fails or DML operations fail
    */
   @AuraEnabled
-  public static String createJobApplication(Map<String, Object> jobData) {
+  public static List<String> createJobApplications(List<Map<String, Object>> jobDataList) {
     try {
-      // Create JobApplicationDomain from Map data
-      JobApplicationDomain posting = new JobApplicationDomain();
-      posting.externalId = String.valueOf(jobData.get('id'));
-      posting.title = String.valueOf(jobData.get('title'));
-      posting.company = String.valueOf(jobData.get('company'));
-      posting.location = String.valueOf(jobData.get('location'));
-      posting.description = String.valueOf(jobData.get('description'));
-      posting.salary = String.valueOf(jobData.get('salary'));
-      posting.sourceUrl = String.valueOf(jobData.get('sourceUrl'));
-      posting.source = String.valueOf(jobData.get('source'));
+      if (jobDataList == null || jobDataList.isEmpty()) {
+        throw new AuraHandledException('No job data provided for application creation.');
+      }
 
-      // Convert domain object to Job Application record
-      Job_Application__c jobApp = posting.toJobApplicationRecord();
-
-      // Check CRUD permissions before DML operation
+      // Check CRUD permissions before processing
       if (!Schema.sObjectType.Job_Application__c.isCreateable()) {
         throw new AuraHandledException(
           'You do not have permission to create Job Applications.'
         );
       }
 
-      insert jobApp;
+      // Convert Maps to Domain objects
+      List<JobApplicationDomain> postings = new List<JobApplicationDomain>();
+      for (Map<String, Object> jobData : jobDataList) {
+        JobApplicationDomain posting = new JobApplicationDomain();
+        posting.externalId = String.valueOf(jobData.get('id'));
+        posting.title = String.valueOf(jobData.get('title'));
+        posting.company = String.valueOf(jobData.get('company'));
+        posting.location = String.valueOf(jobData.get('location'));
+        posting.description = String.valueOf(jobData.get('description'));
+        posting.salary = String.valueOf(jobData.get('salary'));
+        posting.sourceUrl = String.valueOf(jobData.get('sourceUrl'));
+        posting.source = String.valueOf(jobData.get('source'));
+        postings.add(posting);
+      }
 
-      System.debug(LoggingLevel.INFO, 'Created Job Application: ' + jobApp.Id);
-      return jobApp.Id;
+      // Convert domain objects to Job Application records
+      List<Job_Application__c> jobApps = new List<Job_Application__c>();
+      for (JobApplicationDomain posting : postings) {
+        jobApps.add(posting.toJobApplicationRecord());
+      }
+
+      // Bulk insert
+      insert jobApps;
+
+      // Extract IDs for return
+      List<String> createdIds = new List<String>();
+      for (Job_Application__c jobApp : jobApps) {
+        createdIds.add(jobApp.Id);
+      }
+
+      System.debug(LoggingLevel.INFO, 'Created ' + createdIds.size() + ' Job Applications: ' + createdIds);
+      return createdIds;
     } catch (Exception e) {
       System.debug(
         LoggingLevel.ERROR,
-        'JobSearchController.createJobApplication failed: ' + e.getMessage()
+        'JobSearchController.createJobApplications failed: ' + e.getMessage()
       );
       throw new AuraHandledException(
-        'Failed to create job application: ' + e.getMessage()
+        'Failed to create job applications: ' + e.getMessage()
       );
     }
   }
