@@ -71,8 +71,8 @@ Option A — Deploy via Salesforce CLI
 
 ```bash
 # Clone the repo
-git clone https://github.com/<username>/job-application-tracker.git
-cd job-application-tracker
+git clone https://github.com/JonathanLyles/SFDC-Job-Application-Tracker.git
+cd SFDC-Job-Application-Tracker
 
 # Authorize your target org
 sfdx auth:web:login -a MyOrgAlias
