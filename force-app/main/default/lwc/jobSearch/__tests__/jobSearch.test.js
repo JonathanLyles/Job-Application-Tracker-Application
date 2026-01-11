@@ -546,57 +546,66 @@ describe("Conditional Rendering", () => {
   afterEach(cleanupDOM);
 
   it("should render column filters when search returns results", async () => {
-    // Arrange
+    // What we want to test: When a search returns job results, the column filter UI should appear
+    // Based on template: filters render when hasSearchResults=true
+    // hasSearchResults = originalJobs.length > 0 && !isLoading
+    
+    // Arrange - Set up component and mock successful search with job data
     const mockJobData = [
       {
-        id: "1",
-        title: "Test Job",
-        salary: "$50k",
-        company: "Test Corp",
-        location: "Test City",
+        id: "JOB001",
+        title: "Software Engineer",
+        salary: "$75,000",
+        company: "TechCorp",
+        location: "Remote",
         workType: "remote",
-        source: "Test"
+        source: "Indeed"
       }
     ];
 
     searchJobs.mockResolvedValue(mockJobData);
-
     const element = createJobSearchElement();
 
     // Wait for component initialization (job boards loading)
     await Promise.resolve();
 
-    // Act - Trigger search using correct "Search Jobs" button
-    const buttons = element.shadowRoot.querySelectorAll("lightning-button");
-    const searchButton = Array.from(buttons).find(
-      (button) => button.label === "Search Jobs"
-    );
-    expect(searchButton).not.toBeNull(); // Ensure we found the right button
+    // Before search - verify filters are NOT rendered
+    const inputsBeforeSearch = element.shadowRoot.querySelectorAll("lightning-input").length;
+    expect(inputsBeforeSearch).toBe(2); // Only Keywords and Location
 
+    // Act - Perform a search that returns results
+    const searchButton = Array.from(element.shadowRoot.querySelectorAll("lightning-button"))
+      .find(button => button.label === "Search Jobs");
+    
     searchButton.dispatchEvent(new CustomEvent("click"));
 
-    // Wait for async operations and re-render
+    // Wait for search completion and component re-render
     await Promise.resolve();
     await Promise.resolve();
 
-    // Assert - Column filters should be rendered
-    const allInputs = element.shadowRoot.querySelectorAll("lightning-input");
-    const allComboboxes =
-      element.shadowRoot.querySelectorAll("lightning-combobox");
-    const allButtons = element.shadowRoot.querySelectorAll("lightning-button");
-
-    // Should have initial inputs (Keywords, Location) + filter inputs
-    expect(allInputs.length).toBeGreaterThan(2);
-
-    // Should have at least one combobox (the filter type combobox)
-    expect(allComboboxes.length).toBeGreaterThan(0);
-
-    // Should have initial buttons + Clear Filters button + pagination buttons
-    expect(allButtons.length).toBeGreaterThan(4);
-
-    // Verify that we have search results and therefore should show filters
+    // Assert - Column filters should now be visible
+    // Step 1: Verify the search was called (prerequisite)
+    expect(searchJobs).toHaveBeenCalled();
+    
+    // Step 2: Verify data table is rendered (shows hasResults=true)
     const dataTable = element.shadowRoot.querySelector("lightning-datatable");
     expect(dataTable).not.toBeNull();
+
+    // Step 3: Verify filter UI is rendered - the key test
+    const allInputsAfter = element.shadowRoot.querySelectorAll("lightning-input");
+    
+    // Should have 2 search inputs + 5 filter inputs = 7 total
+    // This proves that column filters have been rendered
+    expect(allInputsAfter.length).toBe(7);
+    
+    // Step 4: Verify Clear Filters button exists (part of filter UI)
+    const clearFiltersButton = Array.from(element.shadowRoot.querySelectorAll("lightning-button"))
+      .find(button => button.label === "Clear Filters");
+    expect(clearFiltersButton).not.toBeNull();
+
+    // Step 5: Verify pagination is shown (confirms results are displayed)
+    const paginationText = element.shadowRoot.textContent.includes("Page 1 of 1");
+    expect(paginationText).toBe(true);
   });
 
   it("should NOT render datatable when search returns no results", async () => {
@@ -1011,37 +1020,22 @@ describe("Job Application Creation", () => {
   });
 
   it("should show warning when no jobs are selected", async () => {
-    // Arrange
+    // What we want to test: Warning logic when handleCreateApplications is called with no selection
+    // Note: In normal UI flow, this scenario isn't possible since action bar is hidden when no selections
+    // However, we can test the method logic directly for edge cases
+    
+    // Arrange - Set up component with job data but no selections
     const element = await setupComponentWithSelectedJobs();
     const dispatchEventSpy = jest.spyOn(element, "dispatchEvent");
     
-    // Clear selection to test warning
-    const dataTable = element.shadowRoot.querySelector("lightning-datatable");
-    dataTable.dispatchEvent(
-      new CustomEvent("rowselection", {
-        detail: { selectedRows: [] }
-      })
-    );
+    // Clear the selection to simulate empty state
+    element.selectedJobs = [];
     await Promise.resolve();
-
-    // Act - Click the Create Applications button when no jobs are selected
-    const actionBar = element.shadowRoot.querySelector(
-      '.slds-m-bottom_medium[style*="background-color"]'
-    );
     
-    if (actionBar) {
-      const buttons = actionBar.querySelectorAll('lightning-button');
-      const createButton = Array.from(buttons).find(
-        button => button.label && (button.label.includes('Create') && button.label.includes('Application'))
-      );
-      
-      if (createButton) {
-        createButton.dispatchEvent(new CustomEvent("click"));
-        await Promise.resolve();
-      }
-    }
-
-    // Assert
+    // Act - Call the method directly to test the warning logic
+    await element.handleCreateApplications();
+    
+    // Assert - Warning toast should be dispatched and no API call made
     expect(createJobApplications).not.toHaveBeenCalled();
     expect(dispatchEventSpy).toHaveBeenCalledWith(
       expect.objectContaining({
