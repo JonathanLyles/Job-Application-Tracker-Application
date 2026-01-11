@@ -95,8 +95,12 @@ describe("Initial Render", () => {
     // Arrange & Act
     const element = createJobSearchElement();
 
-    // Assert
-    const searchButton = element.shadowRoot.querySelector("lightning-button");
+    // Assert - Find the specific "Search Jobs" button among multiple buttons
+    const buttons = element.shadowRoot.querySelectorAll("lightning-button");
+    const searchButton = Array.from(buttons).find(
+      (button) => button.label === "Search Jobs"
+    );
+
     expect(searchButton).not.toBeNull();
     expect(searchButton.label).toBe("Search Jobs");
     expect(searchButton.disabled).toBe(false);
