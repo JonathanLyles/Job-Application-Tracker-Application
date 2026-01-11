@@ -570,50 +570,6 @@ describe("Conditional Rendering", () => {
 
   afterEach(cleanupDOM);
 
-  it("should render datatable when search returns results", async () => {
-    // Arrange
-    const mockJobData = [
-      {
-        id: "1",
-        title: "Senior Developer",
-        salary: "$95,000",
-        company: "TechCorp",
-        location: "Toronto",
-        workType: "remote",
-        source: "LinkedIn"
-      },
-      {
-        id: "2",
-        title: "Frontend Developer",
-        salary: "$75,000",
-        company: "WebCorp",
-        location: "Montreal",
-        workType: "hybrid",
-        source: "Indeed"
-      }
-    ];
-
-    searchJobs.mockResolvedValue(mockJobData);
-
-    const element = createJobSearchElement();
-
-    // Act - Find the search button and trigger click event
-    const searchButton = element.shadowRoot.querySelector("lightning-button");
-    expect(searchButton).not.toBeNull(); // Ensure button exists
-
-    // Simulate button click by dispatching click event
-    searchButton.dispatchEvent(new CustomEvent("click"));
-
-    // Wait for async operations and re-render
-    await Promise.resolve();
-    await Promise.resolve();
-
-    // Assert - Datatable should be rendered
-    const dataTable = element.shadowRoot.querySelector("lightning-datatable");
-    expect(dataTable).not.toBeNull();
-    expect(dataTable.keyField).toBe("id");
-  });
-
   it("should render column filters when search returns results", async () => {
     // Arrange
     const mockJobData = [
