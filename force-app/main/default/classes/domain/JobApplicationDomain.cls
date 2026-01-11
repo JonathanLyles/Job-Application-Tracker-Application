@@ -172,15 +172,31 @@ public with sharing class JobApplicationDomain {
       return null;
     }
 
-    // Remove common currency symbols and formatting
-    String cleanSalary = salaryString.replaceAll('[^0-9.,]', '');
+    // Remove common currency symbols and spaces
+    String cleanSalary = salaryString.replaceAll('[€$£¥\\s]', '');
 
-    // Extract the first number (minimum salary from range)
-    Pattern numberPattern = Pattern.compile('([0-9,]+)');
+    // Handle European format (periods as thousands separator)
+    // Convert "75.000" to "75000" and "75.000,50" to "75000.50"
+    if (cleanSalary.contains('.') && cleanSalary.contains(',')) {
+      // Format like "75.000,50" - period is thousands, comma is decimal
+      cleanSalary = cleanSalary.replace('.', '').replace(',', '.');
+    } else if (
+      cleanSalary.contains('.') &&
+      cleanSalary.indexOf('.') < cleanSalary.length() - 3
+    ) {
+      // Format like "75.000" - period is thousands separator
+      cleanSalary = cleanSalary.replace('.', '');
+    }
+
+    // Extract the first number (minimum salary from range or single value)
+    // Look for patterns like "80,000", "80000", "90,000 annually"
+    Pattern numberPattern = Pattern.compile('([0-9,]{3,})(?:[^0-9]|$)');
     Matcher matcher = numberPattern.matcher(cleanSalary);
 
     if (matcher.find()) {
-      String numberStr = matcher.group(1).replace(',', '');
+      String numberStr = matcher.group(1);
+      // Remove commas (thousands separators in US format)
+      numberStr = numberStr.replace(',', '');
       try {
         return Decimal.valueOf(numberStr);
       } catch (Exception e) {

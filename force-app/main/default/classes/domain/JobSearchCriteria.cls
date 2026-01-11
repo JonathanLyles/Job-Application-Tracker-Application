@@ -7,9 +7,9 @@
  *
  * UI LAYER (Lightning Web Components):
  *   - jobSearch LWC collects form inputs and delegates to controller:
- *     callApexMethod(keywords, location, workTypes)
- *   - Validates basic input before sending to backend:
- *     if (keywords || location) { callApexMethod(keywords, location, workTypes) }
+ *     searchJobs(keywords, location, workTypes)
+ *   - Passes raw user inputs directly to backend without validation
+ *   - Validation occurs in controller when domain object is created
  *
  * SERVICE LAYER (JobSearchService):
  *   - Receives criteria from controller and coordinates multi-board search:
