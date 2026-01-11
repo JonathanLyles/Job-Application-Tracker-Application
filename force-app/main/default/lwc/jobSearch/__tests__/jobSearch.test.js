@@ -563,8 +563,16 @@ describe("Conditional Rendering", () => {
 
     const element = createJobSearchElement();
 
-    // Act - Trigger search using generic button selector
-    const searchButton = element.shadowRoot.querySelector("lightning-button");
+    // Wait for component initialization (job boards loading)
+    await Promise.resolve();
+
+    // Act - Trigger search using correct "Search Jobs" button
+    const buttons = element.shadowRoot.querySelectorAll("lightning-button");
+    const searchButton = Array.from(buttons).find(
+      (button) => button.label === "Search Jobs"
+    );
+    expect(searchButton).not.toBeNull(); // Ensure we found the right button
+
     searchButton.dispatchEvent(new CustomEvent("click"));
 
     // Wait for async operations and re-render
@@ -572,21 +580,23 @@ describe("Conditional Rendering", () => {
     await Promise.resolve();
 
     // Assert - Column filters should be rendered
-    // Check for filter inputs in a more generic way since attribute selectors may not work
     const allInputs = element.shadowRoot.querySelectorAll("lightning-input");
     const allComboboxes =
       element.shadowRoot.querySelectorAll("lightning-combobox");
     const allButtons = element.shadowRoot.querySelectorAll("lightning-button");
 
-    // Should have more than just the initial search inputs (keywords, location)
-    // After search: keywords, location, + 5 filter inputs = 7 total
+    // Should have initial inputs (Keywords, Location) + filter inputs
     expect(allInputs.length).toBeGreaterThan(2);
 
     // Should have at least one combobox (the filter type combobox)
     expect(allComboboxes.length).toBeGreaterThan(0);
 
-    // Should have more than just the search button (search + pagination + clear filters)
-    expect(allButtons.length).toBeGreaterThan(1);
+    // Should have initial buttons + Clear Filters button + pagination buttons
+    expect(allButtons.length).toBeGreaterThan(4);
+
+    // Verify that we have search results and therefore should show filters
+    const dataTable = element.shadowRoot.querySelector("lightning-datatable");
+    expect(dataTable).not.toBeNull();
   });
 
   it("should NOT render datatable when search returns no results", async () => {
