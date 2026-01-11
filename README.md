@@ -1,8 +1,10 @@
 (Work in progress)
 
-# Salesforce Job Application Tracker
+# Job Application Tracker App
 
-This repository contains a Salesforce-native Job Application Tracker, designed to help users search and track job postings across multiple job boards (e.g. Jooble, Google Jobs, etc). The application is built using modern Salesforce best practices, including Queueable Apex, Strategy Patterns, Domain-Driven Design, Platform Events, and robust trigger handling.
+This repository contains a **Salesforce-native application** that streamlines the entire job application lifecycle—from discovery to organization. Built with enterprise-grade architecture, it enables users to search across multiple job boards APIs simultaneously (Jooble, Google Jobs API, etc.) while automatically tracking and organizing their applications within Salesforce.
+
+The application demonstrates **modern Salesforce development best practices**, featuring async orchestration with Queueable Apex, extensible Strategy Patterns, Domain-Driven Design principles, real-time Platform Events, and robust trigger handling—all designed for scalability, maintainability, and seamless integration with existing Salesforce orgs.
 
 ## Key Features
 
@@ -10,10 +12,14 @@ This repository contains a Salesforce-native Job Application Tracker, designed t
 - **Async Execution:** Queueable Apex ensures scalable, governor-limit-safe callouts while providing incremental updates to the UI.
 - **Normalized Domain Model:** External API responses are normalized into consistent domain objects (`JobApplicationDomain`) for downstream processing and persistence.
 - **Robust Logging:** Integrated **Nebula Logger** provides consistent, correlated logs across controllers, services, queueables, strategies, and triggers.
-- **Trigger-Driven Task Creation:** Uses SFDC trigger framework by Kevin O’Hara to create follow-up Tasks based on the status of persisted `Job_Application__c` records.
+- **Trigger-Driven Task Creation:** Uses SFDC Trigger Framework by Kevin O’Hara to create follow-up Tasks based on the status of persisted `Job_Application__c` records.
 - **Extensible Architecture:** Adding new job boards is straightforward — implement a strategy, register it, and the system handles orchestration, logging, and event notifications automatically.
 
 ## Purpose
+
+**Job Application Tracker** is a comprehensive Salesforce-native application that empowers users to efficiently manage their entire job search journey. From initial job discovery across multiple platforms to final offer acceptance, this solution provides end-to-end lifecycle management within the familiar Salesforce ecosystem.
+
+The application seamlessly integrates with leading job board APIs (Jooble, Indeed, LinkedIn) to aggregate opportunities in one centralized location, while intelligent automation handles tracking, organization, and follow-up task creation throughout each application's progression—transforming a traditionally scattered process into a streamlined, data-driven experience.
 
 This project demonstrates a scalable and maintainable architecture for integrating Salesforce with multiple external APIs, handling asynchronous processing, and providing real-time UI updates. It follows **Hexagonal / Clean Architecture principles**, separating concerns across the UI, application services, strategies, queueables, and triggers, while ensuring observability, robustness, and ease of testing.
 
@@ -23,7 +29,7 @@ This application was built according to the following requirements:
 
 ### Multiple External APIs
 
-- Support integration with different job boards (e.g., Jooble, Indeed)
+- Support integration with different job boards (e.g., Jooble, Google Jobs)
 - Abstract API-specific request/response formats via **API wrappers**
 - Normalize results into a common **domain wrapper** (`JobApplicationDomain`) for consistent downstream processing
 
@@ -41,14 +47,14 @@ This application was built according to the following requirements:
 
 ### Comprehensive Logging
 
-- Integrate **Nebula Logger** throughout layers: controllers, services, queueables, strategies, triggers
+- Integrate **Nebula Logger** by Jonathan Gillespie throughout layers: controllers, services, queueables, strategies, triggers
 - Track workflow, retries, progress, errors, and events with **searchId correlation**
 - Ensure all log entries across layers include **searchId** (and queueable ID if applicable) for consistent correlation and traceability
 - Enable observability for troubleshooting, audit, and monitoring
 
 ### Robust Trigger Handling
 
-- Use **Kevin O'Hara trigger framework** for `Job_Application__c`
+- Use **SFDC Trigger Framework** by Kevin O'Hara for `Job_Application__c`
 - Handle post-persistence logic (e.g., task creation) in a **bulk-safe, idempotent manner** (Idempotent - checks if task already exists)
 - Ensure triggers **react to changes**, not orchestrate external calls
 
@@ -399,7 +405,7 @@ When a user selects multiple job boards:
 
 ```text
 Keywords: Salesforce Developer
-Location: Montreal  
+Location: Montreal
 Job Boards: [Jooble, Indeed, LinkedIn]
 ```
 
@@ -417,12 +423,14 @@ CompositeBoardSearchQueueable
 **1️⃣ Salesforce Governor Limits**
 
 Salesforce imposes strict limits per transaction. Fan-out ensures:
+
 - **One board = one callout = one Queueable**
 - No single transaction exceeds governor limits
 
 **2️⃣ Failure Isolation**
 
 Without fan-out, one board's failure could crash the entire search. With fan-out:
+
 - Each board executes independently
 - Failures are isolated (e.g., Jooble ❌, Indeed ✅, LinkedIn ✅)
 - Results arrive separately via Platform Events
@@ -430,6 +438,7 @@ Without fan-out, one board's failure could crash the entire search. With fan-out
 **3️⃣ Better User Experience**
 
 Fan-out enables the UI to:
+
 - Show results incrementally
 - Indicate which boards succeeded or failed
 - Avoid waiting for the slowest provider
@@ -565,12 +574,14 @@ apex/
 The Application Controller acts as a **facade** between the LWC UI and the backend application logic, implementing a clean separation between the presentation and business layers.
 
 **Primary Responsibilities:**
+
 - **Input Validation:** Validate user inputs from the UI before processing
 - **Data Translation:** Convert UI DTOs → domain objects (`JobSearchCriteria`)
 - **Search Coordination:** Create searchId for tracking and initiate search workflows
 - **Exception Handling:** Handle synchronous exceptions and provide immediate user feedback
 
 **Architectural Benefits:**
+
 - **UI Isolation:** Shields the LWC from complex backend concerns (queueables, strategies, callouts, persistence)
 - **Stable Interface:** Provides well-defined `@AuraEnabled` methods that remain consistent as backend evolves
 - **Evolution Support:** Internal services, queueables, and strategies can change without affecting the UI layer
@@ -580,11 +591,13 @@ The Application Controller acts as a **facade** between the LWC UI and the backe
 #### Domain Objects
 
 **JobSearchCriteria**
+
 - Encapsulates normalized user search inputs
 - Provides validation and business rules for search parameters
 - Acts as the standard format for passing search criteria through the system
 
-**JobApplicationDomain**  
+**JobApplicationDomain**
+
 - Represents normalized job posting data used throughout the application
 - Provides consistent data structure independent of source job board APIs
 - Encapsulates business logic related to job application processing
@@ -592,11 +605,13 @@ The Application Controller acts as a **facade** between the LWC UI and the backe
 #### Service Layer
 
 **JobSearchService**
-- Manages the sync → async boundary for search operations  
+
+- Manages the sync → async boundary for search operations
 - Decides between single vs composite search strategies
 - Initiates orchestration workflows
 
 **JobSearchTrackingService**
+
 - Implements fan-in coordination for composite searches
 - Tracks completion status across multiple job boards
 - Aggregates final results and publishes completion events
@@ -604,11 +619,13 @@ The Application Controller acts as a **facade** between the LWC UI and the backe
 #### Integration Layer
 
 **Strategy Registry (JobBoardStrategyRegistry)**
+
 - Maps job board identifiers to concrete strategy implementations
 - Provides factory-like resolution of board-specific logic
 - Validates supported job boards and handles strategy instantiation
 
 **Concrete Strategies**
+
 - **JoobleStrategy / IndeedStrategy:** Board-specific API integration logic
 - **CompositeJobBoardStrategy:** Coordinates multiple board strategies for composite searches
 - **AbstractJobBoardStrategy:** Defines common contract for all job board integrations
@@ -616,16 +633,19 @@ The Application Controller acts as a **facade** between the LWC UI and the backe
 #### Orchestration Layer
 
 **JobSearchOrchestratorQueueable**
+
 - Main async orchestration entry point
 - Routes to appropriate search strategy (single vs composite)
 - Manages high-level workflow coordination
 
 **SingleBoardSearchQueueable**
-- Handles individual job board searches  
+
+- Handles individual job board searches
 - Executes HTTP callouts, parses responses, persists results
 - Publishes progress and completion events
 
 **CompositeBoardSearchQueueable**
+
 - Implements fan-out pattern for multi-board searches
 - Creates and enqueues individual SingleBoardSearchQueueable instances
 - Coordinates parallel execution across multiple job boards
@@ -633,18 +653,21 @@ The Application Controller acts as a **facade** between the LWC UI and the backe
 #### Data Layer
 
 **JobApplicationTrigger + JobApplicationTriggerHandler**
+
 - Uses **Kevin O'Hara trigger framework** for robust, bulk-safe trigger handling
-- Reacts to Job_Application__c record changes (insert/update)
+- Reacts to Job_Application\_\_c record changes (insert/update)
 - Delegates to JobApplicationTaskHelper for business logic
 
 **JobApplicationTaskHelper**
-- Creates Task records based on Job_Application__c status
+
+- Creates Task records based on Job_Application\_\_c status
 - Implements idempotent, bulk-safe task creation logic
 - Handles post-persistence business rules without external integrations
 
 #### Messaging & Events
 
-**Platform Events (JobSearchCompleted__e)**
+**Platform Events (JobSearchCompleted\_\_e)**
+
 - Enables decoupled communication between async processing and UI
 - Provides real-time progress updates and completion notifications
 - Supports correlation via searchId for traceability
