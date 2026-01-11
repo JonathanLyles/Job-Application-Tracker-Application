@@ -1,8 +1,8 @@
 /**
- * Facade Controller for Job Search Orchestration
+ * Apex Controller implementing Facade for Job Search Orchestration
  * ============================================
  *
- * This controller implements a facade pattern to orchestrate job searches across multiple
+ * This is an Apex controller that implements a facade pattern to orchestrate job searches across multiple
  * external job boards while maintaining clean separation of concerns.
  *
  * ARCHITECTURAL OVERVIEW:
@@ -13,14 +13,17 @@
  *    └─> Collects user input (keywords, location, work types, board selection)
  *    └─> Displays search results and status updates
  *
- * 2. FACADE LAYER (JobSearchController) ◄── YOU ARE HERE
- *    ├─> Validates input parameters
- *    ├─> Coordinates between UI and service layers
- *    ├─> Handles async operation tracking
- *    └─> Transforms domain objects for UI consumption
+ * 2. CONTROLLER LAYER (JobSearchController) - APPLICATION ORCHESTRATION
+ *    ├─> Input Orchestration: Validates, sanitizes, and transforms UI inputs into domain objects
+ *    ├─> Workflow Coordination: Manages sequence of operations across service boundaries  
+ *    ├─> Async Process Management: Initiates, tracks, and reports on background operations
+ *    ├─> Data Translation: Converts between UI formats, domain objects, and service responses
+ *    ├─> Error Orchestration: Catches service exceptions and translates to user-friendly messages
+ *    ├─> Transaction Boundaries: Manages operation scope and rollback scenarios
+ *    └─> Security Enforcement: Validates permissions and applies security rules
  *
- * 3. SERVICE LAYER (JobSearchService)
- *    ├─> Orchestrates business logic
+ * 3. SERVICE LAYER (JobSearchService) - BUSINESS LOGIC ORCHESTRATION
+ *    ├─> Orchestrates business logic (delegated from controller)
  *    ├─> Manages async processing with Queueable Apex
  *    ├─> Handles board selection strategy
  *    └─> Aggregates results from multiple sources
@@ -40,64 +43,64 @@
  * 6. PERSISTENCE LAYER (Job_Application__c)
  *    └─> Salesforce custom object for data storage
  *
- * DATA FLOW DIAGRAM:
- * ----------------
+ * SYSTEM DATA FLOWS:
+ * ==================
  *
- * [LWC] ──search params──> [JobSearchController.searchJobs()]
- *   │                            │
- *   │                            ├─> validates input
- *   │                            └─> creates JobSearchCriteria
- *   │                                      │
- *   │                                      ▼
- *   │                          [JobSearchService.searchJobsAsync()]
- *   │                                      │
- *   │                                      ├─> generates searchId
- *   │                                      ├─> determines boards to search
- *   │                                      └─> enqueues JobSearchQueueable
- *   │                                                    │
- *   └─> polls status via ──> [getSearchStatus()]         │
- *       getSearchStatus()            │                   │
- *                                   │                   ▼
- *                                   │         [JobSearchQueueable.execute()]
- *                                   │                   │
- *                                   │                   ├─> creates strategies via Registry
- *                                   │                   ├─> parallel API calls
- *                                   │                   └─> aggregates results
- *                                   │                             │
- *                                   │                             ▼
- *                                   │                   [Strategy.searchJobs()]
- *                                   │                             │
- *                                   │                             ├─> makes HTTP request
- *                                   │                             ├─> parses JSON response
- *                                   │                             └─> creates JobApplicationDomain[]
- *                                   │                                       │
- *                                   ▼                                       │
- *                             [return results] ◄─────────────────────────────┘
- *                                   │
- *                                   ▼
- *                             [LWC displays jobs] ──user selects job──> [createJobApplication()]
- *                                                                              │
- *                                                                              ├─> creates JobApplicationDomain
- *                                                                              ├─> converts to Job_Application__c
- *                                                                              └─> persists to database
+ * Flow 1: Job Search Initiation
+ * [LWC] ──search params──> [searchJobs()]
+ *   ├─> Input: keywords, location, workTypes, selectedBoards  
+ *   ├─> Creates: JobSearchCriteria domain object
+ *   ├─> Delegates: JobSearchService.searchJobsAsync()
+ *   └─> Output: searchId (e.g., "JSR-20240102123045-347")
  *
- * SEPARATION OF CONCERNS:
- * ----------------------
+ * Flow 2: Async Processing & Status Polling  
+ * [LWC] ──searchId──> [getSearchStatus()]
+ *   ├─> Input: searchId from previous search
+ *   ├─> Checks: AsyncApexJob status + cached results
+ *   ├─> Transforms: JobApplicationDomain[] → Map<String,Object>[]
+ *   └─> Output: {status, progress, message, results, resultCount}
  *
- * ┌─ FACADE CONCERNS ─────────────────────────────────────────────────────────┐
- * │ • User input validation and sanitization                                  │
- * │ • Async operation coordination and status management                      │
- * │ • Error handling and user-friendly error messages                        │
- * │ • Data transformation between service layer and presentation layer       │
- * │ • Transaction boundary management for user operations                     │
+ * Flow 3: Configuration Discovery
+ * [LWC] ──(none)──> [getJobBoardInfo()] (cacheable)
+ *   ├─> Input: None (configuration query)
+ *   ├─> Queries: JobBoardStrategyRegistry.getAvailableBoards()
+ *   ├─> Aggregates: Strategy requirements per board
+ *   └─> Output: {availableBoards[], boardRequirements{}}
+ *
+ * Flow 4: Job Application Creation
+ * [LWC] ──job selection──> [createJobApplication()]
+ *   ├─> Input: Map<String,Object> (selected job data)
+ *   ├─> Reconstructs: JobApplicationDomain from Map
+ *   ├─> Transforms: Domain → Job_Application__c SObject
+ *   └─> Output: Salesforce record ID
+ *
+ * Cross-Flow Data Transformations:
+ * • UI Format ↔ Domain Objects ↔ Salesforce Records
+ * • External APIs → Domain Objects → UI Format  
+ * • Search Criteria → Strategy Parameters → API Requests
+ *
+
+ *
+ * ORCHESTRATION RESPONSIBILITIES:
+ * ================================
+ *
+ * ┌─ APPLICATION ORCHESTRATION (Controller Layer) ────────────────────────────┐
+ * │ • Input Coordination: Validate UI inputs → Transform → Create domain objects │
+ * │ • Workflow Sequencing: Chain service calls → Handle dependencies → Manage state │
+ * │ • Process Lifecycle: Start async operations → Track progress → Report completion │
+ * │ • Data Flow Management: UI format ↔ Domain objects ↔ Service responses   │
+ * │ • Exception Translation: Service errors → User-friendly messages → UI feedback │
+ * │ • Cross-Layer Communication: Coordinate between UI, Service, and Domain layers │
+ * │ • Security Orchestration: Validate permissions → Apply access controls    │
+ * │ • Transaction Coordination: Define operation boundaries → Manage rollbacks │
+ * │   ↓ DELEGATES business logic orchestration to Service Layer               │
  * └────────────────────────────────────────────────────────────────────────────┘
  *
- * ┌─ NOT FACADE CONCERNS ─────────────────────────────────────────────────────┐
- * │ • External API integration details (delegated to Strategy layer)         │
- * │ • Job board selection logic (delegated to Service layer)                 │
- * │ • Data format normalization (delegated to Domain layer)                  │
- * │ • HTTP request/response handling (delegated to Strategy layer)           │
- * │ • Retry logic and resilience patterns (delegated to Service layer)      │
+ * ┌─ BUSINESS LOGIC ORCHESTRATION (Service Layer) ────────────────────────────┐
+ * │ • Domain Process Coordination (delegated from Controller)                │
+ * │ • Business Rule Implementation and Enforcement                           │
+ * │ • Complex Workflow Management and State Transitions                      │
+ * │ • External Integration Strategy Selection and Execution                  │
  * └────────────────────────────────────────────────────────────────────────────┘
  *
  * ASYNC PROCESSING FLOW:
@@ -126,21 +129,7 @@ public with sharing class JobSearchController {
   /**
    * ENTRY POINT: Initiates asynchronous job search across multiple job boards
    *
-   * DATA FLOW:
-   * ----------
-   * Input:  User search parameters from LWC
-   *   ├─> keywords: Search terms (e.g., "Software Developer")
-   *   ├─> location: Geographic constraint (e.g., "Toronto", "Remote")
-   *   ├─> workTypes: Employment types (e.g., ["remote", "hybrid"])
-   *   └─> selectedBoards: Job board preferences (e.g., ["Indeed", "Jooble"])
-   *
-   * Processing:
-   *   1. Creates JobSearchCriteria domain object (validation + encapsulation)
-   *   2. Delegates to JobSearchService for async orchestration
-   *   3. Generates unique searchId for operation tracking
-   *
-   * Output: String searchId for status polling
-   *   └─> Format: "JSR-{timestamp}-{random}" (e.g., "JSR-20240102123045-347")
+
    *
    * RESPONSIBILITIES:
    * • Input validation and sanitization
@@ -197,30 +186,7 @@ public with sharing class JobSearchController {
   /**
    * STATUS POLLING: Retrieves progress and results of async job search operation
    *
-   * DATA FLOW:
-   * ----------
-   * Input:  searchId from previous searchJobs() call
-   *   └─> Used to identify and track specific search operation
-   *
-   * Processing:
-   *   1. Queries AsyncApexJob table for queueable status
-   *   2. Retrieves cached/stored results if search completed
-   *   3. Transforms domain objects to UI-consumable format
-   *   4. Calculates progress percentage and status messages
-   *
-   * Output: Map<String, Object> containing:
-   *   ├─> 'status': Current state ("QUEUED", "RUNNING", "COMPLETED", "FAILED")
-   *   ├─> 'progress': Completion percentage (0-100)
-   *   ├─> 'message': Human-readable status description
-   *   ├─> 'results': List<Map<String, Object>> job postings (when complete)
-   *   ├─> 'resultCount': Total number of jobs found
-   *   └─> 'searchId': Echo of input for client-side correlation
-   *
-   * RESULT TRANSFORMATION FLOW:
-   * JobApplicationDomain[] → Map<String, Object>[] for LWC consumption
-   *   ├─> Domain.toLWCMap() converts each job posting
-   *   ├─> Standardized field names across all job boards
-   *   └─> UI-friendly data types and formats
+
    *
    * RESPONSIBILITIES:
    * • Async operation status monitoring
@@ -278,24 +244,7 @@ public with sharing class JobSearchController {
   /**
    * CONFIGURATION ENDPOINT: Provides metadata about available job board integrations
    *
-   * DATA FLOW:
-   * ----------
-   * Input:  None (cacheable configuration query)
-   *
-   * Processing:
-   *   1. Queries JobBoardStrategyRegistry for available strategies
-   *   2. Instantiates each strategy to gather requirements
-   *   3. Aggregates capability and constraint information
-   *
-   * Output: Map<String, Object> containing:
-   *   ├─> 'availableBoards': List<String> of supported job board names
-   *   └─> 'boardRequirements': Map<String, List<String>> field requirements per board
-   *        ├─> "Indeed": ["keywords", "location"]
-   *        └─> "Jooble": ["keywords"]
-   *
-   * REGISTRY INTERACTION FLOW:
-   * getJobBoardInfo() → JobBoardStrategyRegistry.getAvailableBoards()
-   *   └─> For each board: Registry.createStrategy() → Strategy.getRequiredFields()
+
    *
    * RESPONSIBILITIES:
    * • Discovery of available integrations
@@ -357,38 +306,7 @@ public with sharing class JobSearchController {
   /**
    * PERSISTENCE ENDPOINT: Converts external job posting to Salesforce record
    *
-   * DATA FLOW:
-   * ----------
-   * Input:  Map<String, Object> representing selected job from search results
-   *   ├─> Standardized format from JobApplicationDomain.toLWCMap()
-   *   ├─> Contains: id, title, company, location, salary, source, etc.
-   *   └─> Originates from user selection in LWC datatable
-   *
-   * Processing:
-   *   1. Reconstructs JobApplicationDomain from Map data
-   *   2. Validates domain object business rules
-   *   3. Transforms to Job_Application__c SObject
-   *   4. Persists to Salesforce database
-   *
-   * Output: String Salesforce record ID of created Job_Application__c
-   *   └─> Used by UI for navigation and confirmation
-   *
-   * TRANSFORMATION FLOW:
-   * Map<String, Object> → JobApplicationDomain → Job_Application__c → Database
-   *   ├─> Step 1: Manual property mapping (external format → domain)
-   *   ├─> Step 2: Domain.toJobApplicationRecord() (domain → SObject)
-   *   └─> Step 3: DML insert operation (SObject → database)
-   *
-   * FIELD MAPPING STRATEGY:
-   * External Format    → Domain Property  → Salesforce Field
-   * ├─> 'id'           → externalId       → (not persisted - external reference)
-   * ├─> 'title'        → title            → Position_Title__c
-   * ├─> 'company'      → company          → Company_Name__c
-   * ├─> 'location'     → location         → Location__c
-   * ├─> 'description'  → description      → Description__c
-   * ├─> 'salary'       → salary           → Salary__c
-   * ├─> 'sourceUrl'    → sourceUrl        → URL__c
-   * └─> (default)      → (default)        → Status__c = 'Interested'
+
    *
    * RESPONSIBILITIES:
    * • Data format transformation and validation
