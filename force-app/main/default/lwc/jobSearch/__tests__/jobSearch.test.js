@@ -1,10 +1,22 @@
 import { createElement } from "@lwc/engine-dom";
 import JobSearch from "c/jobSearch";
 
-// Mock the Apex method
+// Mock the Apex methods
 import searchJobs from "@salesforce/apex/JobSearchController.searchJobs";
+import createJobApplications from "@salesforce/apex/JobSearchController.createJobApplications";
+
 jest.mock(
   "@salesforce/apex/JobSearchController.searchJobs",
+  () => {
+    return {
+      default: jest.fn()
+    };
+  },
+  { virtual: true }
+);
+
+jest.mock(
+  "@salesforce/apex/JobSearchController.createJobApplications",
   () => {
     return {
       default: jest.fn()
@@ -557,5 +569,441 @@ describe("Conditional Rendering", () => {
     const errorDiv = element.shadowRoot.querySelector(".slds-text-color_error");
     expect(errorDiv).not.toBeNull();
     expect(errorDiv.textContent.trim()).toBe(errorMessage);
+  });
+});
+
+describe("Multi-Select Functionality", () => {
+  afterEach(() => {
+    cleanupDOM();
+    jest.clearAllMocks();
+  });
+
+  const mockJobData = [
+    {
+      id: "JOB001",
+      title: "Senior Developer",
+      company: "TechCorp",
+      location: "Remote",
+      salary: "$90,000",
+      workType: "remote",
+      source: "Indeed"
+    },
+    {
+      id: "JOB002",
+      title: "Frontend Engineer",
+      company: "StartupCo",
+      location: "San Francisco",
+      salary: "$85,000",
+      workType: "hybrid",
+      source: "LinkedIn"
+    }
+  ];
+
+  async function setupComponentWithJobs() {
+    searchJobs.mockResolvedValue(mockJobData);
+    const element = createJobSearchElement();
+
+    // Trigger search to populate jobs
+    const searchButton = element.shadowRoot.querySelector("lightning-button");
+    searchButton.dispatchEvent(new CustomEvent("click"));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    return element;
+  }
+
+  it("should enable row selection on data table", async () => {
+    // Arrange & Act
+    const element = await setupComponentWithJobs();
+
+    // Assert
+    const dataTable = element.shadowRoot.querySelector("lightning-datatable");
+    expect(dataTable).not.toBeNull();
+    expect(dataTable.maxRowSelection).toBe("999");
+    expect(dataTable.onrowselection).toBeDefined();
+  });
+
+  it("should not show action bar when no jobs are selected", async () => {
+    // Arrange & Act
+    const element = await setupComponentWithJobs();
+
+    // Assert
+    const actionBar = element.shadowRoot.querySelector(
+      '.slds-m-bottom_medium[style*="background-color"]'
+    );
+    expect(actionBar).toBeNull();
+  });
+
+  it("should show action bar when jobs are selected", async () => {
+    // Arrange
+    const element = await setupComponentWithJobs();
+    const selectedRows = [mockJobData[0]];
+
+    // Act - Simulate row selection
+    const dataTable = element.shadowRoot.querySelector("lightning-datatable");
+    dataTable.dispatchEvent(
+      new CustomEvent("rowselection", {
+        detail: { selectedRows }
+      })
+    );
+
+    await Promise.resolve();
+
+    // Assert
+    const actionBar = element.shadowRoot.querySelector(
+      '.slds-m-bottom_medium[style*="background-color"]'
+    );
+    expect(actionBar).not.toBeNull();
+    expect(actionBar.textContent).toContain("1 job(s) selected");
+  });
+
+  it("should update selected count when multiple jobs are selected", async () => {
+    // Arrange
+    const element = await setupComponentWithJobs();
+    const selectedRows = mockJobData; // Select all jobs
+
+    // Act
+    const dataTable = element.shadowRoot.querySelector("lightning-datatable");
+    dataTable.dispatchEvent(
+      new CustomEvent("rowselection", {
+        detail: { selectedRows }
+      })
+    );
+
+    await Promise.resolve();
+
+    // Assert
+    const actionBar = element.shadowRoot.querySelector(
+      '.slds-m-bottom_medium[style*="background-color"]'
+    );
+    expect(actionBar.textContent).toContain("2 job(s) selected");
+
+    const createButton = actionBar.querySelector("lightning-button");
+    expect(createButton.label).toBe("Create 2 Applications");
+  });
+
+  it("should show singular label for single selection", async () => {
+    // Arrange
+    const element = await setupComponentWithJobs();
+    const selectedRows = [mockJobData[0]];
+
+    // Act
+    const dataTable = element.shadowRoot.querySelector("lightning-datatable");
+    dataTable.dispatchEvent(
+      new CustomEvent("rowselection", {
+        detail: { selectedRows }
+      })
+    );
+
+    await Promise.resolve();
+
+    // Assert
+    const createButton = element.shadowRoot.querySelector(
+      "lightning-button[label*='Create']"
+    );
+    expect(createButton.label).toBe("Create 1 Application");
+  });
+});
+
+describe("Job Application Creation", () => {
+  afterEach(() => {
+    cleanupDOM();
+    jest.clearAllMocks();
+  });
+
+  const mockJobData = [
+    {
+      id: "JOB001",
+      title: "Senior Developer",
+      company: "TechCorp",
+      location: "Remote",
+      salary: "$90,000",
+      workType: "remote",
+      source: "Indeed"
+    }
+  ];
+
+  async function setupComponentWithSelectedJobs() {
+    searchJobs.mockResolvedValue(mockJobData);
+    const element = createJobSearchElement();
+
+    // Trigger search and select jobs
+    const searchButton = element.shadowRoot.querySelector("lightning-button");
+    searchButton.dispatchEvent(new CustomEvent("click"));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Select jobs
+    const dataTable = element.shadowRoot.querySelector("lightning-datatable");
+    dataTable.dispatchEvent(
+      new CustomEvent("rowselection", {
+        detail: { selectedRows: mockJobData }
+      })
+    );
+
+    await Promise.resolve();
+
+    return element;
+  }
+
+  it("should successfully create job applications", async () => {
+    // Arrange
+    const mockCreatedIds = ["APP001"];
+    createJobApplications.mockResolvedValue(mockCreatedIds);
+
+    const element = await setupComponentWithSelectedJobs();
+
+    // Mock toast event dispatching
+    const dispatchEventSpy = jest.spyOn(element, "dispatchEvent");
+
+    // Act
+    const createButton = element.shadowRoot.querySelector(
+      "lightning-button[label*='Create']"
+    );
+    createButton.dispatchEvent(new CustomEvent("click"));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Assert
+    expect(createJobApplications).toHaveBeenCalledWith({
+      jobDataList: mockJobData
+    });
+
+    // Check success toast was dispatched
+    expect(dispatchEventSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "lightning__showtoast",
+        detail: expect.objectContaining({
+          title: "Success",
+          message: "Job application created successfully!",
+          variant: "success"
+        })
+      })
+    );
+  });
+
+  it("should handle API errors gracefully", async () => {
+    // Arrange
+    const errorMessage = "Failed to create applications";
+    createJobApplications.mockRejectedValue({
+      body: { message: errorMessage }
+    });
+
+    const element = await setupComponentWithSelectedJobs();
+    const dispatchEventSpy = jest.spyOn(element, "dispatchEvent");
+
+    // Act
+    const createButton = element.shadowRoot.querySelector(
+      "lightning-button[label*='Create']"
+    );
+    createButton.dispatchEvent(new CustomEvent("click"));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Assert
+    expect(dispatchEventSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "lightning__showtoast",
+        detail: expect.objectContaining({
+          title: "Error",
+          message: errorMessage,
+          variant: "error"
+        })
+      })
+    );
+  });
+
+  it("should show warning when no jobs are selected", async () => {
+    // Arrange
+    searchJobs.mockResolvedValue(mockJobData);
+    const element = createJobSearchElement();
+
+    // Trigger search but don't select any jobs
+    const searchButton = element.shadowRoot.querySelector("lightning-button");
+    searchButton.dispatchEvent(new CustomEvent("click"));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const dispatchEventSpy = jest.spyOn(element, "dispatchEvent");
+
+    // Act - Try to create applications without selection
+    element.handleCreateApplications();
+
+    await Promise.resolve();
+
+    // Assert
+    expect(createJobApplications).not.toHaveBeenCalled();
+    expect(dispatchEventSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "lightning__showtoast",
+        detail: expect.objectContaining({
+          title: "Warning",
+          message: "Please select at least one job to create applications.",
+          variant: "warning"
+        })
+      })
+    );
+  });
+
+  it("should clear selection after successful creation", async () => {
+    // Arrange
+    const mockCreatedIds = ["APP001"];
+    createJobApplications.mockResolvedValue(mockCreatedIds);
+
+    const element = await setupComponentWithSelectedJobs();
+
+    // Act
+    const createButton = element.shadowRoot.querySelector(
+      "lightning-button[label*='Create']"
+    );
+    createButton.dispatchEvent(new CustomEvent("click"));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Assert - Action bar should be hidden after successful creation
+    const actionBar = element.shadowRoot.querySelector(
+      '.slds-m-bottom_medium[style*="background-color"]'
+    );
+    expect(actionBar).toBeNull();
+  });
+
+  it("should disable create button while loading", async () => {
+    // Arrange
+    createJobApplications.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          // Don't resolve immediately to test loading state
+        })
+    );
+
+    const element = await setupComponentWithSelectedJobs();
+
+    // Act
+    const createButton = element.shadowRoot.querySelector(
+      "lightning-button[label*='Create']"
+    );
+    createButton.dispatchEvent(new CustomEvent("click"));
+
+    await Promise.resolve();
+
+    // Assert
+    expect(createButton.disabled).toBe(true);
+  });
+
+  it("should handle multiple applications success message correctly", async () => {
+    // Arrange
+    const multipleJobs = [mockJobData[0], { ...mockJobData[0], id: "JOB002" }];
+    searchJobs.mockResolvedValue(multipleJobs);
+    createJobApplications.mockResolvedValue(["APP001", "APP002"]);
+
+    const element = createJobSearchElement();
+
+    // Setup with multiple jobs selected
+    const searchButton = element.shadowRoot.querySelector("lightning-button");
+    searchButton.dispatchEvent(new CustomEvent("click"));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const dataTable = element.shadowRoot.querySelector("lightning-datatable");
+    dataTable.dispatchEvent(
+      new CustomEvent("rowselection", {
+        detail: { selectedRows: multipleJobs }
+      })
+    );
+
+    await Promise.resolve();
+
+    const dispatchEventSpy = jest.spyOn(element, "dispatchEvent");
+
+    // Act
+    const createButton = element.shadowRoot.querySelector(
+      "lightning-button[label*='Create']"
+    );
+    createButton.dispatchEvent(new CustomEvent("click"));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Assert
+    expect(dispatchEventSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "lightning__showtoast",
+        detail: expect.objectContaining({
+          title: "Success",
+          message: "2 job applications created successfully!",
+          variant: "success"
+        })
+      })
+    );
+  });
+});
+
+describe("State Management", () => {
+  afterEach(() => {
+    cleanupDOM();
+    jest.clearAllMocks();
+  });
+
+  it("should clear selected jobs when resetState is called", () => {
+    // Arrange
+    const element = createJobSearchElement();
+    element.selectedJobs = [{ id: "JOB001" }];
+
+    // Act
+    element.resetState();
+
+    // Assert
+    expect(element.selectedJobs).toEqual([]);
+  });
+
+  it("should maintain selection state during filtering", async () => {
+    // Arrange
+    const mockJobs = [
+      { id: "JOB001", title: "Developer", company: "TechCorp" },
+      { id: "JOB002", title: "Engineer", company: "StartupCo" }
+    ];
+
+    searchJobs.mockResolvedValue(mockJobs);
+    const element = createJobSearchElement();
+
+    // Search and select jobs
+    const searchButton = element.shadowRoot.querySelector("lightning-button");
+    searchButton.dispatchEvent(new CustomEvent("click"));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Select jobs
+    const dataTable = element.shadowRoot.querySelector("lightning-datatable");
+    dataTable.dispatchEvent(
+      new CustomEvent("rowselection", {
+        detail: { selectedRows: [mockJobs[0]] }
+      })
+    );
+
+    await Promise.resolve();
+
+    // Act - Apply a filter
+    const titleFilter = element.shadowRoot.querySelector(
+      'lightning-input[label="Filter Title"]'
+    );
+    titleFilter.value = "Developer";
+    titleFilter.dispatchEvent(
+      new CustomEvent("change", {
+        target: { value: "Developer" }
+      })
+    );
+
+    await Promise.resolve();
+
+    // Assert - Selection should be maintained
+    expect(element.selectedJobs).toEqual([mockJobs[0]]);
   });
 });
