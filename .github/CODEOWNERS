@@ -3,26 +3,26 @@
 # See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Global default owners for all files
-* @jonathan-trevino
+* @JonathanLyles
 
 # Lightning Web Components require extra review
-force-app/main/default/lwc/ @jonathan-trevino
-force-app/test/default/classes/ @jonathan-trevino
+force-app/main/default/lwc/ @JonathanLyles
+force-app/test/default/classes/ @JonathanLyles
 
 # Critical configuration files
-package.json @jonathan-trevino
-jest.config.js @jonathan-trevino
-eslint.config.js @jonathan-trevino
-.github/ @jonathan-trevino
+package.json @JonathanLyles
+jest.config.js @JonathanLyles
+eslint.config.js @JonathanLyles
+.github/ @JonathanLyles
 
 # Metadata and permissions
-force-app/main/default/permissionsets/ @jonathan-trevino
-force-app/main/default/objects/ @jonathan-trevino
+force-app/main/default/permissionsets/ @JonathanLyles
+force-app/main/default/objects/ @JonathanLyles
 
 # CI/CD and automation
-.github/workflows/ @jonathan-trevino
-.husky/ @jonathan-trevino
-scripts/ @jonathan-trevino
+.github/workflows/ @JonathanLyles
+.husky/ @JonathanLyles
+scripts/ @JonathanLyles
 
 # Documentation
-*.md @jonathan-trevino
+*.md @JonathanLyles
