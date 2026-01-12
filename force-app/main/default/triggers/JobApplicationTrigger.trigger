@@ -5,9 +5,14 @@
  * @author Jonathan Lyles
  * @date 2026-01-03
  */
-trigger JobApplicationTrigger on Job_Application__c (
-    before insert, before update, before delete,
-    after insert, after update, after delete, after undelete
+trigger JobApplicationTrigger on Job_Application__c(
+  before insert,
+  before update,
+  before delete,
+  after insert,
+  after update,
+  after delete,
+  after undelete
 ) {
-    new JobApplicationTriggerHandler().run();
+  new JobApplicationTriggerHandler().run();
 }

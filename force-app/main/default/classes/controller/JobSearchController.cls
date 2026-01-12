@@ -251,10 +251,14 @@ public with sharing class JobSearchController {
    * @throws AuraHandledException When validation fails or DML operations fail
    */
   @AuraEnabled
-  public static List<String> createJobApplications(List<Map<String, Object>> jobDataList) {
+  public static List<String> createJobApplications(
+    List<Map<String, Object>> jobDataList
+  ) {
     try {
       if (jobDataList == null || jobDataList.isEmpty()) {
-        throw new AuraHandledException('No job data provided for application creation.');
+        throw new AuraHandledException(
+          'No job data provided for application creation.'
+        );
       }
 
       // Check CRUD permissions before processing
@@ -294,7 +298,10 @@ public with sharing class JobSearchController {
         createdIds.add(jobApp.Id);
       }
 
-      System.debug(LoggingLevel.INFO, 'Created ' + createdIds.size() + ' Job Applications: ' + createdIds);
+      System.debug(
+        LoggingLevel.INFO,
+        'Created ' + createdIds.size() + ' Job Applications: ' + createdIds
+      );
       return createdIds;
     } catch (Exception e) {
       System.debug(
