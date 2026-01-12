@@ -2,7 +2,7 @@ import { LightningElement } from "lwc";
 import searchJobs from "@salesforce/apex/JobSearchController.searchJobs";
 import getAvailableJobBoards from "@salesforce/apex/JobSearchController.getAvailableJobBoards";
 import createJobApplications from "@salesforce/apex/JobSearchController.createJobApplications";
-import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { ShowToastEvent } from "lightning/platformShowToastEvent";
 
 const PAGE_SIZE = 10;
 
@@ -111,7 +111,9 @@ export default class JobSearch extends LightningElement {
 
   get createApplicationsButtonLabel() {
     const count = this.selectedJobsCount;
-    return count === 1 ? 'Create 1 Application' : `Create ${count} Applications`;
+    return count === 1
+      ? "Create 1 Application"
+      : `Create ${count} Applications`;
   }
 
   get showFirstButton() {
@@ -374,13 +376,17 @@ export default class JobSearch extends LightningElement {
 
   async handleCreateApplications() {
     if (this.selectedJobs.length === 0) {
-      this.showToast('Warning', 'Please select at least one job to create applications.', 'warning');
+      this.showToast(
+        "Warning",
+        "Please select at least one job to create applications.",
+        "warning"
+      );
       return;
     }
 
     try {
       this.isLoading = true;
-      
+
       // Create job applications using the selected jobs
       const createdIds = await createJobApplications({
         jobDataList: this.selectedJobs
@@ -388,24 +394,27 @@ export default class JobSearch extends LightningElement {
 
       // Show success message
       const count = createdIds.length;
-      const message = count === 1 
-        ? 'Job application created successfully!' 
-        : `${count} job applications created successfully!`;
-      
-      this.showToast('Success', message, 'success');
-      
+      const message =
+        count === 1
+          ? "Job application created successfully!"
+          : `${count} job applications created successfully!`;
+
+      this.showToast("Success", message, "success");
+
       // Clear selection after successful creation
       this.selectedJobs = [];
-      
+
       // Clear the data table selection
-      const datatable = this.template.querySelector('lightning-datatable');
+      const datatable = this.template.querySelector("lightning-datatable");
       if (datatable) {
         datatable.selectedRows = [];
       }
     } catch (error) {
-      console.error('Failed to create job applications:', error);
-      const errorMessage = error.body?.message || 'An unexpected error occurred while creating applications.';
-      this.showToast('Error', errorMessage, 'error');
+      console.error("Failed to create job applications:", error);
+      const errorMessage =
+        error.body?.message ||
+        "An unexpected error occurred while creating applications.";
+      this.showToast("Error", errorMessage, "error");
     } finally {
       this.isLoading = false;
     }

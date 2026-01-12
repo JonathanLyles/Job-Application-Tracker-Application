@@ -1,8 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Notes__c</fullName>
     <description>A text field that can hold a lot of information</description>
-    <inlineHelpText>A text field that can hold a lot of information.</inlineHelpText>
+    <inlineHelpText
+  >A text field that can hold a lot of information.</inlineHelpText>
     <label>Notes</label>
     <length>32768</length>
     <trackTrending>false</trackTrending>

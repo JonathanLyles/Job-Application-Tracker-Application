@@ -1,9 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Salary__c</fullName>
-    <description>A numerical field to capture the expected salary for the job position.</description>
+    <description
+  >A numerical field to capture the expected salary for the job position.</description>
     <externalId>false</externalId>
-    <inlineHelpText>Enter the expected salary for this position.</inlineHelpText>
+    <inlineHelpText
+  >Enter the expected salary for this position.</inlineHelpText>
     <label>Salary</label>
     <precision>8</precision>
     <required>false</required>
